@@ -1,0 +1,25 @@
+name = "financas-worker"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# Roda o sync automaticamente 1x por dia às 06:00 UTC (03:00 em Brasília)
+[triggers]
+crons = ["0 6 * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "financas-db"
+database_id = "COLOQUE_AQUI_O_ID_QUE_O_WRANGLER_GERAR"
+
+# Opcional, mas recomendado: cache do token da Pluggy (evita re-autenticar toda hora)
+# Se não quiser configurar KV agora, pode remover este bloco e o código funciona igual,
+# só vai re-autenticar na Pluggy a cada chamada.
+# [[kv_namespaces]]
+# binding = "KV_CACHE"
+# id = "COLOQUE_AQUI_O_ID_DO_KV"
+
+# Secrets (NÃO colocar aqui, configurar via `wrangler secret put`):
+#   PLUGGY_CLIENT_ID
+#   PLUGGY_CLIENT_SECRET
+#   PLUGGY_ITEM_MAP     -> ex: [{"itemId":"xxxx-xxxx","personId":"you"},{"itemId":"yyyy-yyyy","personId":"partner"}]
+#   API_SECRET          -> uma senha qualquer que só vocês dois sabem, protege sua própria API
