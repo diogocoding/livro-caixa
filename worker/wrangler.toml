@@ -4,7 +4,7 @@ compatibility_date = "2026-08-01"
 
 # Roda o sync automaticamente 1x por dia às 06:00 UTC (03:00 em Brasília)
 [triggers]
-crons = ["0 6 * * *"]
+crons = ["*/10 * * * *"]
 
 [[d1_databases]]
 binding = "DB"
