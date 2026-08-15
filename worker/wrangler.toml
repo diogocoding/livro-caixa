@@ -9,7 +9,7 @@ crons = ["0 6 * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "financas-db"
-database_id = "COLOQUE_AQUI_O_ID_QUE_O_WRANGLER_GERAR"
+database_id = "2146e9be-d068-4f30-8beb-c291e714bff8"
 
 # Opcional, mas recomendado: cache do token da Pluggy (evita re-autenticar toda hora)
 # Se não quiser configurar KV agora, pode remover este bloco e o código funciona igual,
