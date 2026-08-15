@@ -1,0 +1,1 @@
+ALTER TABLE sync_state ADD COLUMN cursor TEXT; ALTER TABLE sync_state ADD COLUMN done INTEGER DEFAULT 0;
