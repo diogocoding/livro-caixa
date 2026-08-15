@@ -1,276 +1,585 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Livro-Caixa</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
-<style>
-  :root{
-    --ink:#161A22;
-    --surface:#1E2430;
-    --surface-2:#252C3A;
-    --rule:#333B4C;
-    --paper:#EDE7DA;
-    --paper-dim:#A9A79B;
-    --sage:#7FA98E;
-    --coral:#D97B66;
-    --amber:#D4A24C;
-  }
-  *{box-sizing:border-box;}
-  body{
-    margin:0; background:var(--ink); color:var(--paper);
-    font-family:'Inter',sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:1100px;margin:0 auto;padding:32px 20px 80px;}
-  header.top{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px solid var(--rule);padding-bottom:20px;margin-bottom:28px;flex-wrap:wrap;gap:12px;}
-  header.top h1{
-    font-family:'Fraunces',serif; font-weight:700; font-size:34px; margin:0;
-    letter-spacing:-0.01em;
-  }
-  header.top .sub{color:var(--paper-dim);font-size:13px;font-family:'IBM Plex Mono',monospace;}
-  .cfg-btn{background:none;border:1px solid var(--rule);color:var(--paper-dim);padding:6px 12px;border-radius:6px;font-family:'IBM Plex Mono',monospace;font-size:12px;cursor:pointer;}
-  .cfg-btn:hover{border-color:var(--paper-dim);color:var(--paper);}
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Livro-Caixa</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <style>
+      :root {
+        --ink: #161a22;
+        --surface: #1e2430;
+        --surface-2: #252c3a;
+        --rule: #333b4c;
+        --paper: #ede7da;
+        --paper-dim: #a9a79b;
+        --sage: #7fa98e;
+        --coral: #d97b66;
+        --amber: #d4a24c;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--ink);
+        color: var(--paper);
+        font-family: "Inter", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 80px;
+      }
+      header.top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        border-bottom: 1px solid var(--rule);
+        padding-bottom: 20px;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+      header.top h1 {
+        font-family: "Fraunces", serif;
+        font-weight: 700;
+        font-size: 34px;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      header.top .sub {
+        color: var(--paper-dim);
+        font-size: 13px;
+        font-family: "IBM Plex Mono", monospace;
+      }
+      .cfg-btn {
+        background: none;
+        border: 1px solid var(--rule);
+        color: var(--paper-dim);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      .cfg-btn:hover {
+        border-color: var(--paper-dim);
+        color: var(--paper);
+      }
 
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:32px;}
-  .card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:18px 20px;}
-  .card .label{font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--paper-dim);margin-bottom:8px;}
-  .card .value{font-family:'IBM Plex Mono',monospace;font-size:26px;font-weight:600;}
-  .card .value.warn{color:var(--coral);}
-  .card .value.ok{color:var(--sage);}
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 14px;
+        margin-bottom: 32px;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        padding: 18px 20px;
+      }
+      .card .label {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--paper-dim);
+        margin-bottom: 8px;
+      }
+      .card .value {
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 26px;
+        font-weight: 600;
+      }
+      .card .value.warn {
+        color: var(--coral);
+      }
+      .card .value.ok {
+        color: var(--sage);
+      }
 
-  .panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:22px;margin-bottom:24px;}
-  .panel h2{font-family:'Fraunces',serif;font-weight:600;font-size:19px;margin:0 0 16px;}
-  .grid-2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;}
-  @media(max-width:800px){.grid-2{grid-template-columns:1fr;}}
+      .panel {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        padding: 22px;
+        margin-bottom: 24px;
+      }
+      .panel h2 {
+        font-family: "Fraunces", serif;
+        font-weight: 600;
+        font-size: 19px;
+        margin: 0 0 16px;
+      }
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1.4fr 1fr;
+        gap: 20px;
+      }
+      @media (max-width: 800px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
 
-  table{width:100%;border-collapse:collapse;font-size:13.5px;}
-  th{text-align:left;color:var(--paper-dim);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:0.05em;padding:8px 10px;border-bottom:1px solid var(--rule);}
-  td{padding:10px;border-bottom:1px solid #2a3040;font-family:'IBM Plex Mono',monospace;font-size:13px;}
-  td.desc{font-family:'Inter',sans-serif;font-size:13.5px;}
-  td.amount{text-align:right;}
-  .tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-family:'Inter',sans-serif;background:var(--surface-2);border:1px solid var(--rule);}
-  select.tag-select{background:var(--surface-2);color:var(--paper);border:1px solid var(--rule);border-radius:20px;padding:2px 6px;font-size:11px;font-family:'Inter',sans-serif;}
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13.5px;
+      }
+      th {
+        text-align: left;
+        color: var(--paper-dim);
+        font-weight: 500;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--rule);
+      }
+      td {
+        padding: 10px;
+        border-bottom: 1px solid #2a3040;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+      }
+      td.desc {
+        font-family: "Inter", sans-serif;
+        font-size: 13.5px;
+      }
+      td.amount {
+        text-align: right;
+      }
+      .tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-family: "Inter", sans-serif;
+        background: var(--surface-2);
+        border: 1px solid var(--rule);
+      }
+      select.tag-select {
+        background: var(--surface-2);
+        color: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: 20px;
+        padding: 2px 6px;
+        font-size: 11px;
+        font-family: "Inter", sans-serif;
+      }
 
-  .filters{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
-  .filters select, .filters input{background:var(--surface-2);color:var(--paper);border:1px solid var(--rule);border-radius:6px;padding:6px 10px;font-size:13px;font-family:'Inter',sans-serif;}
+      .filters {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+      .filters select,
+      .filters input {
+        background: var(--surface-2);
+        color: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: 6px;
+        padding: 6px 10px;
+        font-size: 13px;
+        font-family: "Inter", sans-serif;
+      }
 
-  .empty{color:var(--paper-dim);font-size:13px;padding:30px 0;text-align:center;}
+      .empty {
+        color: var(--paper-dim);
+        font-size: 13px;
+        padding: 30px 0;
+        text-align: center;
+      }
 
-  .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);align-items:center;justify-content:center;z-index:10;}
-  .modal-bg.show{display:flex;}
-  .modal{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:24px;width:340px;}
-  .modal h3{font-family:'Fraunces',serif;margin-top:0;}
-  .modal label{display:block;font-size:12px;color:var(--paper-dim);margin:14px 0 4px;}
-  .modal input{width:100%;background:var(--surface-2);border:1px solid var(--rule);color:var(--paper);border-radius:6px;padding:8px;font-family:'IBM Plex Mono',monospace;font-size:13px;}
-  .modal button{margin-top:18px;width:100%;background:var(--sage);border:none;color:#101410;font-weight:600;padding:10px;border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;}
-  .sync-btn{background:none;border:1px solid var(--sage);color:var(--sage);padding:6px 12px;border-radius:6px;font-size:12px;cursor:pointer;font-family:'IBM Plex Mono',monospace;}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <header class="top">
-    <div>
-      <h1>Livro-Caixa</h1>
-      <div class="sub" id="statusLine">carregando…</div>
+      .modal-bg {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+      }
+      .modal-bg.show {
+        display: flex;
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        padding: 24px;
+        width: 340px;
+      }
+      .modal h3 {
+        font-family: "Fraunces", serif;
+        margin-top: 0;
+      }
+      .modal label {
+        display: block;
+        font-size: 12px;
+        color: var(--paper-dim);
+        margin: 14px 0 4px;
+      }
+      .modal input {
+        width: 100%;
+        background: var(--surface-2);
+        border: 1px solid var(--rule);
+        color: var(--paper);
+        border-radius: 6px;
+        padding: 8px;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+      }
+      .modal button {
+        margin-top: 18px;
+        width: 100%;
+        background: var(--sage);
+        border: none;
+        color: #101410;
+        font-weight: 600;
+        padding: 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: "Inter", sans-serif;
+      }
+      .sync-btn {
+        background: none;
+        border: 1px solid var(--sage);
+        color: var(--sage);
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 12px;
+        cursor: pointer;
+        font-family: "IBM Plex Mono", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="top">
+        <div>
+          <h1>Livro-Caixa</h1>
+          <div class="sub" id="statusLine">carregando…</div>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center">
+          <button class="sync-btn" id="syncBtn">↻ sincronizar agora</button>
+          <button class="cfg-btn" id="cfgBtn">config</button>
+        </div>
+      </header>
+
+      <div class="cards" id="cards"></div>
+
+      <div class="grid-2">
+        <div class="panel">
+          <h2>Gasto por mês</h2>
+          <canvas id="monthChart" height="230"></canvas>
+        </div>
+        <div class="panel">
+          <h2>Por categoria (mês atual)</h2>
+          <canvas id="catChart" height="230"></canvas>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Lançamentos</h2>
+        <div class="filters">
+          <select id="fPerson">
+            <option value="">Todos</option>
+            <option value="you">Você</option>
+            <option value="partner">Namorado</option>
+          </select>
+          <select id="fCategory">
+            <option value="">Todas categorias</option>
+          </select>
+          <input type="month" id="fMonth" />
+        </div>
+        <div id="txTableWrap">
+          <div class="empty">Configure a API para carregar os dados.</div>
+        </div>
+      </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;">
-      <button class="sync-btn" id="syncBtn">↻ sincronizar agora</button>
-      <button class="cfg-btn" id="cfgBtn">config</button>
+
+    <div class="modal-bg" id="modalBg">
+      <div class="modal">
+        <h3>Configuração</h3>
+        <label>URL do Worker</label>
+        <input
+          id="apiUrl"
+          placeholder="https://financas-worker.SEU-USUARIO.workers.dev"
+        />
+        <label>Senha da API (API_SECRET)</label>
+        <input id="apiSecret" type="password" />
+        <button id="saveCfg">Salvar</button>
+      </div>
     </div>
-  </header>
 
-  <div class="cards" id="cards"></div>
+    <script>
+      const CATEGORIES = [
+        "Moradia",
+        "Mercado",
+        "Alimentação",
+        "Transporte",
+        "Contas de casa",
+        "Assinaturas",
+        "Cartão / Dívida",
+        "Saúde",
+        "Lazer",
+        "Transferências",
+        "Outros",
+      ];
+      const CAT_COLORS = {
+        Moradia: "#5B8C7B",
+        Mercado: "#D4A24C",
+        Alimentação: "#E0B84C",
+        Transporte: "#7B92C9",
+        "Contas de casa": "#C97B5F",
+        Assinaturas: "#9B7BC9",
+        "Cartão / Dívida": "#C95F5F",
+        Saúde: "#5FA8A0",
+        Lazer: "#D48CB8",
+        Transferências: "#6FA8DC",
+        Outros: "#8A8F99",
+      };
 
-  <div class="grid-2">
-    <div class="panel">
-      <h2>Gasto por mês</h2>
-      <canvas id="monthChart" height="230"></canvas>
-    </div>
-    <div class="panel">
-      <h2>Por categoria (mês atual)</h2>
-      <canvas id="catChart" height="230"></canvas>
-    </div>
-  </div>
+      let cfg = {
+        url: localStorage.getItem("fin_api_url") || "",
+        secret: localStorage.getItem("fin_api_secret") || "",
+      };
 
-  <div class="panel">
-    <h2>Lançamentos</h2>
-    <div class="filters">
-      <select id="fPerson"><option value="">Todos</option><option value="you">Você</option><option value="partner">Namorado</option></select>
-      <select id="fCategory"><option value="">Todas categorias</option></select>
-      <input type="month" id="fMonth" />
-    </div>
-    <div id="txTableWrap"><div class="empty">Configure a API para carregar os dados.</div></div>
-  </div>
-</div>
+      function api(path) {
+        return fetch(cfg.url + path, {
+          headers: { Authorization: "Bearer " + cfg.secret },
+        }).then((r) => {
+          if (!r.ok) throw new Error("API error " + r.status);
+          return r.json();
+        });
+      }
 
-<div class="modal-bg" id="modalBg">
-  <div class="modal">
-    <h3>Configuração</h3>
-    <label>URL do Worker</label>
-    <input id="apiUrl" placeholder="https://financas-worker.SEU-USUARIO.workers.dev" />
-    <label>Senha da API (API_SECRET)</label>
-    <input id="apiSecret" type="password" />
-    <button id="saveCfg">Salvar</button>
-  </div>
-</div>
+      document.getElementById("cfgBtn").onclick = () => {
+        document.getElementById("apiUrl").value = cfg.url;
+        document.getElementById("apiSecret").value = cfg.secret;
+        document.getElementById("modalBg").classList.add("show");
+      };
+      document.getElementById("saveCfg").onclick = () => {
+        cfg.url = document.getElementById("apiUrl").value.replace(/\/$/, "");
+        cfg.secret = document.getElementById("apiSecret").value;
+        localStorage.setItem("fin_api_url", cfg.url);
+        localStorage.setItem("fin_api_secret", cfg.secret);
+        document.getElementById("modalBg").classList.remove("show");
+        loadAll();
+      };
+      document.getElementById("syncBtn").onclick = async () => {
+        document.getElementById("statusLine").textContent =
+          "sincronizando com o(s) banco(s)…";
+        try {
+          await api("/api/sync");
+          await loadAll();
+        } catch (e) {
+          document.getElementById("statusLine").textContent =
+            "erro ao sincronizar: " + e.message;
+        }
+      };
 
-<script>
-const CATEGORIES = ['Moradia','Mercado','Alimentação','Transporte','Contas de casa','Assinaturas','Cartão / Dívida','Saúde','Lazer','Transferências','Outros'];
-const CAT_COLORS = {'Moradia':'#5B8C7B','Mercado':'#D4A24C','Alimentação':'#E0B84C','Transporte':'#7B92C9','Contas de casa':'#C97B5F','Assinaturas':'#9B7BC9','Cartão / Dívida':'#C95F5F','Saúde':'#5FA8A0','Lazer':'#D48CB8','Transferências':'#6FA8DC','Outros':'#8A8F99'};
+      function fmt(n) {
+        return (n || 0).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+      }
 
-let cfg = { url: localStorage.getItem('fin_api_url')||'', secret: localStorage.getItem('fin_api_secret')||'' };
+      let monthChart, catChart;
 
-function api(path){
-  return fetch(cfg.url + path, { headers: { Authorization: 'Bearer ' + cfg.secret } }).then(r=>{
-    if(!r.ok) throw new Error('API error ' + r.status);
-    return r.json();
-  });
-}
+      async function loadAll() {
+        if (!cfg.url || !cfg.secret) {
+          document.getElementById("statusLine").textContent =
+            'clique em "config" para conectar sua API';
+          return;
+        }
+        document.getElementById("statusLine").textContent = "carregando…";
+        try {
+          const [summary, accounts] = await Promise.all([
+            api("/api/summary"),
+            api("/api/accounts"),
+          ]);
+          renderCards(summary, accounts);
+          renderMonthChart(summary.byMonth);
+          renderCatChart(summary.byCategory);
+          await loadTransactions();
+          document.getElementById("statusLine").textContent =
+            "atualizado agora • sync automático todo dia às 03h";
+        } catch (e) {
+          document.getElementById("statusLine").textContent =
+            "erro: " + e.message;
+        }
+      }
 
-document.getElementById('cfgBtn').onclick = ()=>{
-  document.getElementById('apiUrl').value = cfg.url;
-  document.getElementById('apiSecret').value = cfg.secret;
-  document.getElementById('modalBg').classList.add('show');
-};
-document.getElementById('saveCfg').onclick = ()=>{
-  cfg.url = document.getElementById('apiUrl').value.replace(/\/$/,'');
-  cfg.secret = document.getElementById('apiSecret').value;
-  localStorage.setItem('fin_api_url', cfg.url);
-  localStorage.setItem('fin_api_secret', cfg.secret);
-  document.getElementById('modalBg').classList.remove('show');
-  loadAll();
-};
-document.getElementById('syncBtn').onclick = async ()=>{
-  document.getElementById('statusLine').textContent = 'sincronizando com o(s) banco(s)…';
-  try{ await api('/api/sync'); await loadAll(); }
-  catch(e){ document.getElementById('statusLine').textContent = 'erro ao sincronizar: '+e.message; }
-};
+      function renderCards(summary, accounts) {
+        const totalSaldo = accounts
+          .filter((a) => a.type === "BANK")
+          .reduce((s, a) => s + (a.balance || 0), 0);
+        const totalUsadoCartao = accounts
+          .filter((a) => a.type === "CREDIT")
+          .reduce((s, a) => s + Math.abs(a.balance || 0), 0);
+        const totalLimite = accounts
+          .filter((a) => a.type === "CREDIT")
+          .reduce((s, a) => s + (a.credit_limit || 0), 0);
+        const pctLimite = totalLimite
+          ? (totalUsadoCartao / totalLimite) * 100
+          : 0;
+        const gastoMes = summary.byPerson.reduce((s, p) => s + p.total, 0);
 
-function fmt(n){ return (n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
-
-let monthChart, catChart;
-
-async function loadAll(){
-  if(!cfg.url || !cfg.secret){
-    document.getElementById('statusLine').textContent = 'clique em "config" para conectar sua API';
-    return;
-  }
-  document.getElementById('statusLine').textContent = 'carregando…';
-  try{
-    const [summary, accounts] = await Promise.all([api('/api/summary'), api('/api/accounts')]);
-    renderCards(summary, accounts);
-    renderMonthChart(summary.byMonth);
-    renderCatChart(summary.byCategory);
-    await loadTransactions();
-    document.getElementById('statusLine').textContent = 'atualizado agora • sync automático todo dia às 03h';
-  }catch(e){
-    document.getElementById('statusLine').textContent = 'erro: ' + e.message;
-  }
-}
-
-function renderCards(summary, accounts){
-  const totalSaldo = accounts.filter(a=>a.type==='BANK').reduce((s,a)=>s+(a.balance||0),0);
-  const totalUsadoCartao = accounts.filter(a=>a.type==='CREDIT').reduce((s,a)=>s+Math.abs(a.balance||0),0);
-  const totalLimite = accounts.filter(a=>a.type==='CREDIT').reduce((s,a)=>s+(a.credit_limit||0),0);
-  const pctLimite = totalLimite ? (totalUsadoCartao/totalLimite*100) : 0;
-  const gastoMes = summary.byPerson.reduce((s,p)=>s+p.total,0);
-
-  document.getElementById('cards').innerHTML = `
+        document.getElementById("cards").innerHTML = `
     <div class="card"><div class="label">Saldo em conta</div><div class="value">${fmt(totalSaldo)}</div></div>
     <div class="card"><div class="label">Gasto no mês</div><div class="value">${fmt(gastoMes)}</div></div>
-    <div class="card"><div class="label">Cartão usado</div><div class="value ${pctLimite>85?'warn':pctLimite>60?'':'ok'}">${fmt(totalUsadoCartao)} <span style="font-size:13px;color:var(--paper-dim)">(${pctLimite.toFixed(0)}% do limite)</span></div></div>
+    <div class="card"><div class="label">Cartão usado</div><div class="value ${pctLimite > 85 ? "warn" : pctLimite > 60 ? "" : "ok"}">${fmt(totalUsadoCartao)} <span style="font-size:13px;color:var(--paper-dim)">(${pctLimite.toFixed(0)}% do limite)</span></div></div>
   `;
-}
+      }
 
-function renderMonthChart(rows){
-  const months = [...new Set(rows.map(r=>r.month))].sort();
-  const people = ['you','partner'];
-  const datasets = people.map((p,i)=>({
-    label: p==='you' ? 'Você' : 'Namorado',
-    data: months.map(m=>{ const r=rows.find(x=>x.month===m && x.person_id===p); return r? r.gastos : 0; }),
-    backgroundColor: i===0 ? '#7FA98E' : '#D4A24C',
-    borderRadius:4,
-  }));
-  if(monthChart) monthChart.destroy();
-  monthChart = new Chart(document.getElementById('monthChart'), {
-    type:'bar',
-    data:{ labels: months, datasets },
-    options:{
-      responsive:true,
-      scales:{ x:{stacked:true, grid:{display:false}, ticks:{color:'#A9A79B'}}, y:{stacked:true, grid:{color:'#2a3040'}, ticks:{color:'#A9A79B'}} },
-      plugins:{ legend:{labels:{color:'#EDE7DA'}} }
-    }
-  });
-}
+      function renderMonthChart(rows) {
+        const months = [...new Set(rows.map((r) => r.month))].sort();
+        const people = ["you", "partner"];
+        const datasets = people.map((p, i) => ({
+          label: p === "you" ? "Você" : "Namorado",
+          data: months.map((m) => {
+            const r = rows.find((x) => x.month === m && x.person_id === p);
+            return r ? r.gastos : 0;
+          }),
+          backgroundColor: i === 0 ? "#7FA98E" : "#D4A24C",
+          borderRadius: 4,
+        }));
+        if (monthChart) monthChart.destroy();
+        monthChart = new Chart(document.getElementById("monthChart"), {
+          type: "bar",
+          data: { labels: months, datasets },
+          options: {
+            responsive: true,
+            scales: {
+              x: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { color: "#A9A79B" },
+              },
+              y: {
+                stacked: true,
+                grid: { color: "#2a3040" },
+                ticks: { color: "#A9A79B" },
+              },
+            },
+            plugins: { legend: { labels: { color: "#EDE7DA" } } },
+          },
+        });
+      }
 
-function renderCatChart(rows){
-  if(catChart) catChart.destroy();
-  catChart = new Chart(document.getElementById('catChart'), {
-    type:'doughnut',
-    data:{
-      labels: rows.map(r=>r.category||'Outros'),
-      datasets:[{ data: rows.map(r=>r.total), backgroundColor: rows.map(r=>CAT_COLORS[r.category]||'#8A8F99'), borderWidth:0 }]
-    },
-    options:{ plugins:{ legend:{position:'bottom', labels:{color:'#EDE7DA', boxWidth:10, font:{size:11}}} } }
-  });
-}
+      function renderCatChart(rows) {
+        if (catChart) catChart.destroy();
+        catChart = new Chart(document.getElementById("catChart"), {
+          type: "doughnut",
+          data: {
+            labels: rows.map((r) => r.category || "Outros"),
+            datasets: [
+              {
+                data: rows.map((r) => r.total),
+                backgroundColor: rows.map(
+                  (r) => CAT_COLORS[r.category] || "#8A8F99",
+                ),
+                borderWidth: 0,
+              },
+            ],
+          },
+          options: {
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: { color: "#EDE7DA", boxWidth: 10, font: { size: 11 } },
+              },
+            },
+          },
+        });
+      }
 
-async function loadTransactions(){
-  const person = document.getElementById('fPerson').value;
-  const category = document.getElementById('fCategory').value;
-  const month = document.getElementById('fMonth').value; // yyyy-mm
-  let path = '/api/transactions?';
-  if(person) path += `person=${person}&`;
-  if(category) path += `category=${encodeURIComponent(category)}&`;
-  if(month){ path += `from=${month}-01&to=${month}-31&`; }
+      async function loadTransactions() {
+        const person = document.getElementById("fPerson").value;
+        const category = document.getElementById("fCategory").value;
+        const month = document.getElementById("fMonth").value; // yyyy-mm
+        let path = "/api/transactions?";
+        if (person) path += `person=${person}&`;
+        if (category) path += `category=${encodeURIComponent(category)}&`;
+        if (month) {
+          path += `from=${month}-01&to=${month}-31&`;
+        }
 
-  const txs = await api(path);
-  const catSel = document.getElementById('fCategory');
-  if(catSel.options.length<=1){
-    CATEGORIES.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; catSel.appendChild(o); });
-  }
+        const txs = await api(path);
+        const catSel = document.getElementById("fCategory");
+        if (catSel.options.length <= 1) {
+          CATEGORIES.forEach((c) => {
+            const o = document.createElement("option");
+            o.value = c;
+            o.textContent = c;
+            catSel.appendChild(o);
+          });
+        }
 
-  if(!txs.length){ document.getElementById('txTableWrap').innerHTML = '<div class="empty">Nenhum lançamento encontrado.</div>'; return; }
+        if (!txs.length) {
+          document.getElementById("txTableWrap").innerHTML =
+            '<div class="empty">Nenhum lançamento encontrado.</div>';
+          return;
+        }
 
-  const rows = txs.map(t=>`
+        const rows = txs
+          .map(
+            (t) => `
     <tr>
-      <td>${new Date(t.date).toLocaleDateString('pt-BR')}</td>
+      <td>${new Date(t.date).toLocaleDateString("pt-BR")}</td>
       <td class="desc">${t.description}</td>
-      <td>${t.person_id==='you'?'Você':'Namorado'}</td>
+      <td>${t.person_id === "you" ? "Você" : "Namorado"}</td>
       <td>
         <select class="tag-select" data-id="${t.id}">
-          ${CATEGORIES.map(c=>`<option value="${c}" ${c===t.category?'selected':''}>${c}</option>`).join('')}
+          ${CATEGORIES.map((c) => `<option value="${c}" ${c === t.category ? "selected" : ""}>${c}</option>`).join("")}
         </select>
       </td>
-      <td class="amount" style="color:${t.amount>0?'#D97B66':'#7FA98E'}">${fmt(t.amount)}</td>
+      <td class="amount" style="color:${t.amount > 0 ? "#D97B66" : "#7FA98E"}">${fmt(t.amount)}</td>
     </tr>
-  `).join('');
+  `,
+          )
+          .join("");
 
-  document.getElementById('txTableWrap').innerHTML = `
+        document.getElementById("txTableWrap").innerHTML = `
     <table>
       <thead><tr><th>Data</th><th>Descrição</th><th>Pessoa</th><th>Categoria</th><th style="text-align:right">Valor</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
 
-  document.querySelectorAll('.tag-select').forEach(sel=>{
-    sel.onchange = async ()=>{
-      await fetch(cfg.url + '/api/transactions/' + sel.dataset.id, {
-        method:'PATCH',
-        headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+cfg.secret },
-        body: JSON.stringify({ category: sel.value })
-      });
-    };
-  });
-}
+        document.querySelectorAll(".tag-select").forEach((sel) => {
+          sel.onchange = async () => {
+            await fetch(cfg.url + "/api/transactions/" + sel.dataset.id, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: "Bearer " + cfg.secret,
+              },
+              body: JSON.stringify({ category: sel.value }),
+            });
+          };
+        });
+      }
 
-['fPerson','fCategory','fMonth'].forEach(id=>document.getElementById(id).addEventListener('change', loadTransactions));
+      ["fPerson", "fCategory", "fMonth"].forEach((id) =>
+        document
+          .getElementById(id)
+          .addEventListener("change", loadTransactions),
+      );
 
-loadAll();
-</script>
-</body>
+      loadAll();
+    </script>
+  </body>
 </html>
