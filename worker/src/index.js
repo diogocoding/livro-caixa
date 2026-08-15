@@ -31,6 +31,7 @@ async function getPluggyApiKey(env) {
   });
   if (!res.ok) throw new Error(`Falha ao autenticar na Pluggy: ${res.status} ${await res.text()}`);
   const data = await res.json();
+  // apiKey expira em 2h, cacheamos por 100 min se houver KV configurado
   await env.KV_CACHE?.put?.('pluggy_api_key', data.apiKey, { expirationTtl: 6000 }).catch(() => {});
   return data.apiKey;
 }
@@ -45,6 +46,10 @@ async function pluggyFetch(env, path, apiKey) {
 
 // -------------------- Sync --------------------
 
+/**
+ * ITEM_MAP vem do env como JSON: [{ "itemId": "...", "personId": "you" }, { "itemId": "...", "personId": "partner" }]
+ * Cada item = uma conexão bancária (um de vocês pode ter mais de um item se conectar mais de um banco).
+ */
 function getItemMap(env) {
   try {
     return JSON.parse(env.PLUGGY_ITEM_MAP || '[]');
@@ -62,6 +67,7 @@ async function syncAll(env) {
   const itemMap = getItemMap(env);
   const allAccountIds = [];
 
+  // Atualiza a lista de contas (isso é rápido, poucas chamadas)
   for (const { itemId, personId } of itemMap) {
     const accountsResp = await pluggyFetch(env, `/accounts?itemId=${itemId}`, apiKey);
     for (const acc of accountsResp.results || []) {
@@ -81,6 +87,7 @@ async function syncAll(env) {
     }
   }
 
+  // Acha a próxima conta que ainda não terminou de sincronizar o histórico
   const pending = await env.DB.prepare(
     `SELECT a.id FROM accounts a
      LEFT JOIN sync_state s ON s.account_id = a.id
@@ -101,6 +108,8 @@ async function syncOnePage(env, apiKey, accountId) {
     `SELECT cursor FROM sync_state WHERE account_id = ?1`
   ).bind(accountId).first();
 
+  // A Pluggy descontinuou o antigo /transactions (paginação por página) em favor do
+  // /v2/transactions, que usa paginação por cursor (campo 'next' na resposta).
   const url = state?.cursor
     ? `/v2/transactions${state.cursor}`
     : `/v2/transactions?accountId=${accountId}`;
@@ -126,7 +135,7 @@ async function syncOnePage(env, apiKey, accountId) {
     await stmt.bind(
       tx.id, accountId, tx.date, tx.description, tx.amount,
       tx.currencyCode || 'BRL',
-      tx.category || mapMerchantToCategory(tx),
+      mapMerchantToCategory(tx),
       tx.status,
       tx.creditCardMetadata?.installmentNumber ?? null,
       tx.creditCardMetadata?.totalInstallments ?? null,
@@ -147,28 +156,50 @@ async function syncOnePage(env, apiKey, accountId) {
 }
 
 // Fallback simples de categorização quando a Pluggy não manda 'category'
+// (categoria automática enriquecida é feature paga da Pluggy; isso aqui é um mapeamento básico por palavra-chave,
+// calibrado com os extratos reais de vocês — ajustem/adicionem regras conforme surgirem nomes novos)
 function mapMerchantToCategory(tx) {
   const d = (tx.description || '').toLowerCase();
 
   const rules = [
+    // --- Cartão / Dívida (renegociação, juros, encargos, pagamento de fatura de outro cartão) ---
     [/renegocia|pendenc|rotativo|encargo|juros|iof\b/, 'Cartão / Dívida'],
+
+    // --- Contas de casa (utilidades, gás, telefonia, lavanderia) ---
     [/luz|energia|enel|cemig|cpfl|celpe/, 'Contas de casa'],
     [/agua|saneago|sabesp|compesa/, 'Contas de casa'],
     [/\bgas\b|nilson ?gas/, 'Contas de casa'],
     [/\btim\b|vivo|claro|oi\s|plano nucel|net(flix)?fone/, 'Contas de casa'],
     [/lav\s?60|lavanderia/, 'Contas de casa'],
+
     [/aluguel|condomin/, 'Moradia'],
+
+    // --- Assinaturas (streaming, apps, software, academia) ---
     [/netflix|spotify|amazon prime|disney|hbo|youtube premium/, 'Assinaturas'],
     [/wellhub|gympass|smartfit|academia/, 'Assinaturas'],
     [/anthropic|claude|chatgpt|openai|midjourney/, 'Assinaturas'],
     [/assistenciasa|assist[eê]ncia t[eé]c/, 'Assinaturas'],
+
+    // --- Transporte ---
     [/uber|99\s?ride|dl\*99|tembici|posto|ipiranga|combust/, 'Transporte'],
+
+    // --- Mercado (compras de casa/mês) ---
     [/mercado(?!livre)|supermercado|atacad|hortifruti|comercial de aliment/, 'Mercado'],
-    [/mercadolivre|ec \*mercadolivre/, 'Outros'],
+    [/mercadolivre|ec \*mercadolivre/, 'Outros'], // compras online gerais, não mercado
+
+    // --- Alimentação (lanches, delivery do dia a dia — diferente de "Mercado") ---
     [/lanche|ifood|99food|comedoria/, 'Alimentação'],
+
+    // --- Saúde ---
     [/farmacia|drogaria|extra farma|hospital|clinica|suplement|clicouconsulta/, 'Saúde'],
+
+    // --- Lazer / cuidado pessoal ---
     [/barber|cabelei|salao de beleza|shopee|maxmulti/, 'Lazer'],
+
+    // --- Transferências para pessoas (PIX nominal) — revisem manualmente, pode ser
+    // repasse de conta de casa, ajuda a alguém, diarista etc. ---
     [/tiagorenan|tiago renan|sandravaleria|boa vista$|alyson felipe|carlito mo/, 'Transferências'],
+
     [/fatura|pagamento.*cart/, 'Cartão / Dívida'],
   ];
 
@@ -238,11 +269,22 @@ async function handleSummary(req, env) {
 
   const accounts = await env.DB.prepare(`SELECT * FROM accounts`).all();
 
+  // Parcelas em aberto: soma do que ainda falta pagar de compras parceladas
+  // (assume valor igual por parcela, que é como a maioria dos cartões brasileiros funciona)
+  const upcoming = await env.DB.prepare(
+    `SELECT category, SUM(amount * (total_installments - installment_number)) as total
+     FROM transactions
+     WHERE total_installments IS NOT NULL AND installment_number IS NOT NULL
+       AND installment_number < total_installments AND amount > 0
+     GROUP BY category ORDER BY total DESC`
+  ).all();
+
   return json({
     byCategory: byCategory.results,
     byMonth: byMonth.results,
     byPerson: byPerson.results,
     accounts: accounts.results,
+    upcoming: upcoming.results,
   });
 }
 
@@ -253,6 +295,39 @@ async function handleUpdateCategory(req, env, id) {
     `UPDATE transactions SET category = ?1, category_override = 1 WHERE id = ?2`
   ).bind(body.category, id).run();
   return json({ ok: true });
+}
+
+// Corrige de uma vez as categorias das transações já sincronizadas (não mexe em nada
+// que já foi editado manualmente). Roda 1x só, direto no banco, sem chamar a Pluggy de novo.
+async function handleRecategorize(env) {
+  const result = await env.DB.prepare(`
+    UPDATE transactions
+    SET category = CASE
+      WHEN LOWER(description) LIKE '%renegocia%' OR LOWER(description) LIKE '%pendenc%' OR LOWER(description) LIKE '%rotativo%' OR LOWER(description) LIKE '%encargo%' OR LOWER(description) LIKE '%juros%' OR LOWER(description) LIKE '%iof%' THEN 'Cartão / Dívida'
+      WHEN LOWER(description) LIKE '%luz%' OR LOWER(description) LIKE '%energia%' OR LOWER(description) LIKE '%enel%' OR LOWER(description) LIKE '%cemig%' OR LOWER(description) LIKE '%cpfl%' OR LOWER(description) LIKE '%celpe%' THEN 'Contas de casa'
+      WHEN LOWER(description) LIKE '%agua%' OR LOWER(description) LIKE '%saneago%' OR LOWER(description) LIKE '%sabesp%' OR LOWER(description) LIKE '%compesa%' THEN 'Contas de casa'
+      WHEN LOWER(description) LIKE '%gas%' THEN 'Contas de casa'
+      WHEN LOWER(description) LIKE '%tim %' OR LOWER(description) LIKE '%tim.%' OR LOWER(description) LIKE '%vivo%' OR LOWER(description) LIKE '%claro%' OR LOWER(description) LIKE '%plano nucel%' THEN 'Contas de casa'
+      WHEN LOWER(description) LIKE '%lav60%' OR LOWER(description) LIKE '%lav 60%' OR LOWER(description) LIKE '%lavanderia%' THEN 'Contas de casa'
+      WHEN LOWER(description) LIKE '%aluguel%' OR LOWER(description) LIKE '%condomin%' THEN 'Moradia'
+      WHEN LOWER(description) LIKE '%netflix%' OR LOWER(description) LIKE '%spotify%' OR LOWER(description) LIKE '%amazon prime%' OR LOWER(description) LIKE '%disney%' OR LOWER(description) LIKE '%hbo%' THEN 'Assinaturas'
+      WHEN LOWER(description) LIKE '%wellhub%' OR LOWER(description) LIKE '%gympass%' OR LOWER(description) LIKE '%smartfit%' THEN 'Assinaturas'
+      WHEN LOWER(description) LIKE '%anthropic%' OR LOWER(description) LIKE '%claude%' OR LOWER(description) LIKE '%chatgpt%' OR LOWER(description) LIKE '%openai%' THEN 'Assinaturas'
+      WHEN LOWER(description) LIKE '%assistenciasa%' THEN 'Assinaturas'
+      WHEN LOWER(description) LIKE '%uber%' OR LOWER(description) LIKE '%99 ride%' OR LOWER(description) LIKE '%dl*99%' OR LOWER(description) LIKE '%dl *99%' OR LOWER(description) LIKE '%tembici%' OR LOWER(description) LIKE '%posto%' OR LOWER(description) LIKE '%ipiranga%' THEN 'Transporte'
+      WHEN LOWER(description) LIKE '%mercadolivre%' OR LOWER(description) LIKE '%mercado livre%' OR LOWER(description) LIKE '%ec *mercado%' THEN 'Outros'
+      WHEN LOWER(description) LIKE '%mercado%' OR LOWER(description) LIKE '%supermercado%' OR LOWER(description) LIKE '%atacad%' OR LOWER(description) LIKE '%hortifruti%' OR LOWER(description) LIKE '%comercial de aliment%' THEN 'Mercado'
+      WHEN LOWER(description) LIKE '%lanche%' OR LOWER(description) LIKE '%ifood%' OR LOWER(description) LIKE '%99food%' OR LOWER(description) LIKE '%comedoria%' THEN 'Alimentação'
+      WHEN LOWER(description) LIKE '%farmacia%' OR LOWER(description) LIKE '%drogaria%' OR LOWER(description) LIKE '%extra farma%' OR LOWER(description) LIKE '%hospital%' OR LOWER(description) LIKE '%clinica%' OR LOWER(description) LIKE '%suplement%' OR LOWER(description) LIKE '%clicouconsulta%' OR LOWER(description) LIKE '%medprev%' THEN 'Saúde'
+      WHEN LOWER(description) LIKE '%barber%' OR LOWER(description) LIKE '%cabelei%' OR LOWER(description) LIKE '%shopee%' THEN 'Lazer'
+      WHEN LOWER(description) LIKE '%tiagorenan%' OR LOWER(description) LIKE '%tiago renan%' OR LOWER(description) LIKE '%sandravaleria%' OR LOWER(description) LIKE '%boa vista%' OR LOWER(description) LIKE '%alyson felipe%' OR LOWER(description) LIKE '%carlito mo%' THEN 'Transferências'
+      WHEN LOWER(description) LIKE '%fatura%' THEN 'Cartão / Dívida'
+      WHEN LOWER(description) LIKE '%pix%' OR LOWER(description) LIKE '%transfer%' OR LOWER(description) LIKE '%ted %' THEN 'Transferências'
+      ELSE 'Outros'
+    END
+    WHERE category_override = 0
+  `).run();
+  return json({ ok: true, linhasAtualizadas: result.meta?.changes ?? null });
 }
 
 export default {
@@ -274,6 +349,7 @@ export default {
 
     try {
       if (path === '/api/sync') return json({ synced: await syncAll(env) });
+      if (path === '/api/recategorize') return await handleRecategorize(env);
       if (path === '/api/transactions') return await handleTransactions(req, env);
       if (path === '/api/summary') return await handleSummary(req, env);
       if (path === '/api/accounts') {
@@ -290,6 +366,7 @@ export default {
     }
   },
 
+  // Roda sozinho todo dia às 06:00 UTC (03:00 horário de Brasília) — configurado no wrangler.toml
   async scheduled(event, env, ctx) {
     ctx.waitUntil(syncAll(env));
   },
