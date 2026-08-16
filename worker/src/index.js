@@ -488,10 +488,13 @@ async function handleSummary(req, env) {
   });
 }
 
-async function handleBills(env) {
+async function handleBills(env, req) {
+  const url = new URL(req.url);
+  const all = url.searchParams.get('all') === '1';
+  const where = all ? '' : `WHERE b.due_date >= date('now', '-2 months')`;
   const { results } = await env.DB.prepare(
     `SELECT b.*, a.name as account_name FROM bills b JOIN accounts a ON a.id = b.account_id
-     WHERE b.due_date >= date('now', '-2 months')
+     ${where}
      ORDER BY b.due_date ASC`
   ).all();
   return json(results);
@@ -627,7 +630,7 @@ export default {
       if (path === '/api/debug-loans') return await handleDebugLoans(env);
       if (path === '/api/debt-history') return await handleDebtHistory(env);
       if (path === '/api/fix-foreign-currency') return await handleFixForeignCurrency(env);
-      if (path === '/api/bills') return await handleBills(env);
+      if (path === '/api/bills') return await handleBills(env, req);
       if (path === '/api/transactions') return await handleTransactions(req, env);
       if (path === '/api/summary') return await handleSummary(req, env);
       if (path === '/api/accounts') {

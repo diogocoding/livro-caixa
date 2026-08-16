@@ -9,28 +9,28 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
   :root{
-    --bg:#F1F3FA;
+    --bg:#EDEFF6;
     --surface:#FFFFFF;
-    --surface-soft:#F6F7FC;
-    --border:#E7E9F4;
-    --ink:#1E2233;
-    --ink-dim:#8188A3;
-    --teal:#14B8A6;
-    --indigo:#6366F1;
-    --amber:#F59E0B;
-    --coral:#F43F5E;
-    --green:#22B07D;
-    --orange:#F0A93F;
-    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 20px rgba(16,24,40,.06);
+    --surface-soft:#F4F5FA;
+    --border:#E4E6F0;
+    --ink:#171A26;
+    --ink-dim:#767C93;
+    --teal:#0F766E;
+    --indigo:#4C4FE0;
+    --amber:#D97706;
+    --coral:#DC3D5C;
+    --green:#1E9E6B;
+    --orange:#DB9636;
+    --shadow: 0 1px 2px rgba(23,26,38,.04), 0 10px 28px -8px rgba(23,26,38,.14);
   }
   [data-theme="dark"]{
-    --bg:#12151C;
-    --surface:#1A1F2A;
-    --surface-soft:#232936;
-    --border:#2E3644;
-    --ink:#EDEFF2;
-    --ink-dim:#8891A0;
-    --shadow: 0 2px 10px rgba(0,0,0,.3);
+    --bg:#10131A;
+    --surface:#181C26;
+    --surface-soft:#212632;
+    --border:#2B3140;
+    --ink:#EAECF1;
+    --ink-dim:#848CA0;
+    --shadow: 0 2px 8px rgba(0,0,0,.25), 0 14px 34px -10px rgba(0,0,0,.4);
   }
   *{box-sizing:border-box;}
   body{
@@ -182,6 +182,7 @@
     <button class="tab-btn active" data-tab="geral">Visão Geral</button>
     <button class="tab-btn" data-tab="categorias">Categorias</button>
     <button class="tab-btn" data-tab="dividas">Dívidas</button>
+    <button class="tab-btn" data-tab="faturas">Faturas</button>
     <button class="tab-btn" data-tab="transacoes">Transações</button>
   </div>
 
@@ -229,10 +230,28 @@
 
   <div class="tab-panel" id="tab-dividas">
     <div class="panel">
+      <h2>Parcelas em aberto</h2>
+      <div class="panel-sub">O que ainda falta pagar de compras parceladas (inclui financiamento de loja)</div>
+      <div class="barlist" id="upcomingBars"></div>
+    </div>
+    <div class="panel">
       <h2>Cartões de crédito</h2>
       <div class="panel-sub">Um cartão por vez, com limite e % utilizado</div>
       <div id="cardsList"></div>
     </div>
+    <div class="panel">
+      <h2>Evolução da dívida no cartão</h2>
+      <div class="panel-sub">Saldo devedor ao longo do tempo, por pessoa (começou a registrar agora)</div>
+      <canvas id="debtChart" height="200"></canvas>
+    </div>
+    <div class="panel" id="loansPanel" style="display:none;">
+      <h2>Empréstimos</h2>
+      <div class="panel-sub">Contratos de empréstimo formal (fora do cartão)</div>
+      <div class="barlist" id="loansBars"></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="tab-faturas">
     <div class="panel">
       <h2>Faturas</h2>
       <div class="panel-sub">Fatura atual e próximas faturas previstas</div>
@@ -246,21 +265,9 @@
       <div id="billsList"></div>
     </div>
     <div class="panel">
-      <h2>Evolução da dívida no cartão</h2>
-      <div class="panel-sub">Saldo devedor ao longo do tempo, por pessoa (começou a registrar agora)</div>
-      <canvas id="debtChart" height="200"></canvas>
-    </div>
-    <div class="grid-2">
-      <div class="panel">
-        <h2>Parcelas em aberto</h2>
-        <div class="panel-sub">O que ainda falta pagar de compras parceladas (inclui financiamento de loja)</div>
-        <div class="barlist" id="upcomingBars"></div>
-      </div>
-      <div class="panel" id="loansPanel" style="display:none;">
-        <h2>Empréstimos</h2>
-        <div class="panel-sub">Contratos de empréstimo formal (fora do cartão)</div>
-        <div class="barlist" id="loansBars"></div>
-      </div>
+      <h2>Evolução das faturas</h2>
+      <div class="panel-sub">Valor de cada fatura fechada, mês a mês, por pessoa</div>
+      <canvas id="billsChart" height="220"></canvas>
     </div>
   </div>
 
@@ -306,7 +313,7 @@
 
 <script>
 const CATEGORIES = ['Moradia','Mercado','Alimentação','Transporte','Contas de casa','Assinaturas','Cartão / Dívida','Financiamento','Investimentos','Saúde','Lazer','Transferências','Outros'];
-const CAT_COLORS = {'Moradia':'#22B07D','Mercado':'#F59E0B','Alimentação':'#F0A93F','Transporte':'#6366F1','Contas de casa':'#EC7C4D','Assinaturas':'#A78BFA','Cartão / Dívida':'#F43F5E','Financiamento':'#D97706','Investimentos':'#14B8A6','Saúde':'#0EA5E9','Lazer':'#EC4899','Transferências':'#38BDF8','Outros':'#94A3B8'};
+const CAT_COLORS = {'Moradia':'#1E9E6B','Mercado':'#D97706','Alimentação':'#DB9636','Transporte':'#4C4FE0','Contas de casa':'#C2673F','Assinaturas':'#8B7CC9','Cartão / Dívida':'#DC3D5C','Financiamento':'#B4750F','Investimentos':'#0F766E','Saúde':'#0E7FA6','Lazer':'#C64A85','Transferências':'#3596C4','Outros':'#7A8199'};
 
 function colorFor(cat){
   if (CAT_COLORS[cat]) return CAT_COLORS[cat];
@@ -396,7 +403,39 @@ document.getElementById('syncBtn').onclick = async ()=>{
 
 function fmt(n){ return (n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
 
-let monthChart, debtChart;
+let monthChart, debtChart, billsChart;
+
+function renderBillsChart(bills){
+  const canvas = document.getElementById('billsChart');
+  if (!bills || bills.length < 2) {
+    canvas.parentElement.querySelector('.panel-sub').textContent = 'Ainda não há faturas suficientes pra mostrar evolução.';
+    return;
+  }
+  const porMes = {};
+  bills.forEach(b=>{
+    if (!b.due_date) return;
+    const mes = b.due_date.slice(0,7);
+    if (!porMes[mes]) porMes[mes] = { you: 0, partner: 0 };
+    porMes[mes][b.person_id] = (porMes[mes][b.person_id]||0) + (b.total_amount||0);
+  });
+  const meses = Object.keys(porMes).sort();
+  const datasets = ['you','partner'].map((p,i)=>({
+    label: p==='you' ? 'Diogo' : 'Tiago',
+    data: meses.map(m=>porMes[m][p]||0),
+    backgroundColor: i===0 ? '#1E9E6B' : '#DB9636',
+    borderRadius:6,
+  }));
+  if (billsChart) billsChart.destroy();
+  billsChart = new Chart(canvas, {
+    type: 'bar',
+    data: { labels: meses, datasets },
+    options: {
+      responsive: true,
+      scales: { x: { grid:{display:false}, ticks:{color:'#767C93'} }, y: { grid:{color:'#F4F5FA'}, ticks:{color:'#767C93'} } },
+      plugins: { legend: { labels: { color: '#171A26' } } }
+    }
+  });
+}
 
 async function loadAll(){
   if(!cfg.url || !cfg.secret){
@@ -405,13 +444,14 @@ async function loadAll(){
   }
   document.getElementById('statusLine').textContent = 'carregando…';
   try{
-    const [summary, accounts, loans, debtHistory, bills] = await Promise.all([
+    const [summary, accounts, loans, debtHistory, bills, billsAll] = await Promise.all([
       api('/api/summary'), api('/api/accounts'), api('/api/loans').catch(()=>[]),
-      api('/api/debt-history').catch(()=>[]), api('/api/bills').catch(()=>[])
+      api('/api/debt-history').catch(()=>[]), api('/api/bills').catch(()=>[]), api('/api/bills?all=1').catch(()=>[])
     ]);
     renderCards(summary, accounts);
     renderCardsList(accounts);
     renderBillsList(bills);
+    renderBillsChart(billsAll);
     renderMonthChart(summary.byMonth);
     renderCategoryBarsSplit(summary.byCategoryPerson);
     renderFixedVariable(summary.byFixedVariable || []);
@@ -468,7 +508,7 @@ function drawBillsList(){
   let html = '';
   if (proxima) {
     const pessoa = proxima.person_id==='you' ? 'Diogo' : 'Tiago';
-    const cor = proxima.person_id==='you' ? '#22B07D' : '#F0A93F';
+    const cor = proxima.person_id==='you' ? '#1E9E6B' : '#DB9636';
     html += `
       <div style="background:var(--surface-soft);border-radius:14px;padding:16px 18px;margin-bottom:14px;">
         <div style="font-size:11px;color:var(--ink-dim);margin-bottom:4px;">${avatar(pessoa,cor)}Próxima fatura · ${proxima.account_name}</div>
@@ -478,7 +518,7 @@ function drawBillsList(){
   }
   html += resto.slice(0,6).map(b=>{
     const pessoa = b.person_id==='you' ? 'Diogo' : 'Tiago';
-    const cor = b.person_id==='you' ? '#22B07D' : '#F0A93F';
+    const cor = b.person_id==='you' ? '#1E9E6B' : '#DB9636';
     const venceu = b.due_date && b.due_date.slice(0,10) < hoje;
     const dataFmt = b.due_date ? new Date(b.due_date).toLocaleDateString('pt-BR') : '—';
     return `
@@ -540,7 +580,7 @@ function renderDebtChart(rows){
   const datasets = people.map((p,i)=>({
     label: p==='you' ? 'Diogo' : 'Tiago',
     data: days.map(d=>{ const r = rows.find(x=>x.day===d && x.person_id===p); return r ? r.total : null; }),
-    borderColor: i===0 ? '#22B07D' : '#F0A93F',
+    borderColor: i===0 ? '#1E9E6B' : '#DB9636',
     backgroundColor: 'transparent',
     tension: .3,
     spanGaps: true,
@@ -566,9 +606,9 @@ function renderCardsList(accounts){
     const usado = Math.abs(c.balance||0);
     const limite = c.credit_limit || 0;
     const pct = limite ? (usado/limite*100) : 0;
-    const cor = c.person_id==='you' ? '#22B07D' : '#F0A93F';
+    const cor = c.person_id==='you' ? '#1E9E6B' : '#DB9636';
     const pessoa = c.person_id==='you' ? 'Diogo' : 'Tiago';
-    const corBarra = pct>=85 ? '#F43F5E' : (pct>=60 ? '#F59E0B' : '#22B07D');
+    const corBarra = pct>=85 ? '#F43F5E' : (pct>=60 ? '#F59E0B' : '#1E9E6B');
     return `
       <div class="cc-card">
         ${ring(pct, corBarra)}
@@ -605,17 +645,17 @@ function renderCards(summary, accounts){
     <div class="card">
       <div class="label">Saldo em conta ${infoBtn('Soma o saldo de todas as contas bancárias (não cartão) de Diogo e Tiago, puxado direto do banco na última sincronização.')}</div>
       <div class="value">${fmt(totalSaldo)}</div>
-      <div class="breakdown">${avatar('Diogo','#22B07D')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','#F0A93F')}${fmt(porPessoaSaldo.partner)}</div>
+      <div class="breakdown">${avatar('Diogo','#1E9E6B')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','#DB9636')}${fmt(porPessoaSaldo.partner)}</div>
     </div>
     <div class="card">
       <div class="label">Gasto real no mês ${infoBtn('Soma das compras/despesas do mês, excluindo transferências entre contas e movimentos de investimento (que não são gasto de verdade).')}</div>
       <div class="value">${fmt(gastoMes)}</div>
-      <div class="breakdown">${avatar('Diogo','#22B07D')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','#F0A93F')}${fmt(gastoTiago)}</div>
+      <div class="breakdown">${avatar('Diogo','#1E9E6B')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','#DB9636')}${fmt(gastoTiago)}</div>
     </div>
     <div class="card">
       <div class="label">Cartão usado ${infoBtn('Soma do saldo devedor atual de todos os cartões de crédito, dividido pela soma dos limites totais.')}</div>
       <div class="value ${pctLimite>85?'warn':pctLimite>60?'':'ok'}">${fmt(totalUsadoCartao)} <span style="font-size:12px;color:var(--ink-dim)">(${pctLimite.toFixed(0)}%)</span></div>
-      <div class="breakdown">${avatar('Diogo','#22B07D')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','#F0A93F')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
+      <div class="breakdown">${avatar('Diogo','#1E9E6B')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','#DB9636')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
     </div>
   `;
 
@@ -635,8 +675,8 @@ function renderComparison(summary, gastoDiogo, gastoTiago){
   const pctTiago = total ? (gastoTiago/total*100) : 50;
 
   document.getElementById('splitTrack').innerHTML = `
-    <div style="width:${pctDiogo}%;background:#22B07D"></div>
-    <div style="width:${pctTiago}%;background:#F0A93F"></div>
+    <div style="width:${pctDiogo}%;background:#1E9E6B"></div>
+    <div style="width:${pctTiago}%;background:#DB9636"></div>
   `;
 
   const catDiogo = (summary.byCategoryPerson||[]).filter(r=>r.person_id==='you').sort((a,b)=>b.total-a.total)[0];
@@ -644,13 +684,13 @@ function renderComparison(summary, gastoDiogo, gastoTiago){
 
   document.getElementById('compare').innerHTML = `
     <div class="who" onclick="goToPersonTransactions('you')">
-      <div class="name" style="color:#22B07D">${avatar('Diogo','#22B07D')} Diogo</div>
+      <div class="name" style="color:#1E9E6B">${avatar('Diogo','#1E9E6B')} Diogo</div>
       <div class="total">${fmt(gastoDiogo)}</div>
       <div class="pct">${pctDiogo.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Diogo dividido pelo gasto real total dos dois no mês corrente.')}</div>
       <div class="top-cat">${catDiogo ? `Categoria onde mais gasta: <b>${catDiogo.category}</b> (${fmt(catDiogo.total)})` : 'Sem gastos categorizados ainda'}</div>
     </div>
     <div class="who" onclick="goToPersonTransactions('partner')">
-      <div class="name" style="color:#F0A93F">${avatar('Tiago','#F0A93F')} Tiago</div>
+      <div class="name" style="color:#DB9636">${avatar('Tiago','#DB9636')} Tiago</div>
       <div class="total">${fmt(gastoTiago)}</div>
       <div class="pct">${pctTiago.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Tiago dividido pelo gasto real total dos dois no mês corrente.')}</div>
       <div class="top-cat">${catTiago ? `Categoria onde mais gasta: <b>${catTiago.category}</b> (${fmt(catTiago.total)})` : 'Sem gastos categorizados ainda'}</div>
@@ -744,8 +784,8 @@ function renderCategoryBarsSplit(byCategoryPerson){
       <div class="barrow" style="cursor:pointer;" onclick="goToCategoryTransactions('${r.category.replace(/'/g,"\\'")}')">
         <div class="barrow-top"><span class="cat">${r.category}</span><span class="val">${fmt(r.total)}</span></div>
         <div class="bartrack" style="display:flex;">
-          <div class="barfill" style="width:${pctYou}%;background:#22B07D;border-radius:6px 0 0 6px;"></div>
-          <div class="barfill" style="width:${pctPartner}%;background:#F0A93F;border-radius:0 6px 6px 0;"></div>
+          <div class="barfill" style="width:${pctYou}%;background:#1E9E6B;border-radius:6px 0 0 6px;"></div>
+          <div class="barfill" style="width:${pctPartner}%;background:#DB9636;border-radius:0 6px 6px 0;"></div>
         </div>
       </div>`;
   }).join('');
@@ -787,16 +827,16 @@ function renderUpcomingBars(rows){
 
   const linhas = [];
   cats.forEach(([cat, v])=>{
-    if (v.you) linhas.push({ cat, pessoa: 'Diogo', cor: '#22B07D', ...v.you });
-    if (v.partner) linhas.push({ cat, pessoa: 'Tiago', cor: '#F0A93F', ...v.partner });
+    if (v.you) linhas.push({ cat, pessoa: 'Diogo', cor: '#1E9E6B', ...v.you });
+    if (v.partner) linhas.push({ cat, pessoa: 'Tiago', cor: '#DB9636', ...v.partner });
   });
   linhas.sort((a,b)=>b.total-a.total);
 
   el.innerHTML = `
     <div style="display:flex;gap:14px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
-      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Diogo','#22B07D')}Total Diogo</div>
+      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Diogo','#1E9E6B')}Total Diogo</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-top:4px;">${fmt(totalPorPessoa.you||0)}</div></div>
-      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Tiago','#F0A93F')}Total Tiago</div>
+      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Tiago','#DB9636')}Total Tiago</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-top:4px;">${fmt(totalPorPessoa.partner||0)}</div></div>
     </div>
     <table style="font-size:12.5px;width:100%;border-collapse:collapse;">
@@ -836,7 +876,7 @@ function renderMonthChart(rows){
   const datasets = people.map((p,i)=>({
     label: p==='you' ? 'Diogo' : 'Tiago',
     data: months.map(m=>{ const r=rows.find(x=>x.month===m && x.person_id===p); return r? r.gastos : 0; }),
-    backgroundColor: i===0 ? '#22B07D' : '#F0A93F',
+    backgroundColor: i===0 ? '#1E9E6B' : '#DB9636',
     borderRadius:6,
   }));
   if(monthChart) monthChart.destroy();
@@ -951,7 +991,7 @@ async function loadTransactions(){
             </select>
           </div>
         </div>
-        <div class="tx-amount" style="color:${t.isExpense?'#F43F5E':'#22B07D'}">${t.isExpense?'-':'+'}${fmt(Math.abs(t.amount))}</div>
+        <div class="tx-amount" style="color:${t.isExpense?'#F43F5E':'#1E9E6B'}">${t.isExpense?'-':'+'}${fmt(Math.abs(t.amount))}</div>
       </div>
     `).join('');
     return `<div class="day-group"><div class="day-header">${label}</div>${rows}</div>`;
