@@ -5,7 +5,7 @@
 // 2) Escuta eventos de push e mostra a notificação (fatura vencendo, meta de gasto estourada).
 
 const CACHE_NAME = 'livro-caixa-v1';
-const SHELL_FILES = ['./index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const SHELL_FILES = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -57,7 +57,7 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(
     self.clients.matchAll({ type: 'window' }).then((clients) => {
       for (const c of clients) { if ('focus' in c) return c.focus(); }
-      if (self.clients.openWindow) return self.clients.openWindow('./index.html');
+      if (self.clients.openWindow) return self.clients.openWindow('/');
     })
   );
 });
