@@ -12,4 +12,10 @@ fi
 mkdir -p dist
 sed "s|__API_URL__|$API_URL|g; s|__API_SECRET__|$API_SECRET|g" frontend/index.html > dist/index.html
 
-echo "Build ok — dist/index.html gerado com as credenciais injetadas."
+# Arquivos do PWA (manifest, service worker, ícones) — não têm placeholder, só copiar.
+cp frontend/manifest.json dist/manifest.json
+cp frontend/sw.js dist/sw.js
+cp frontend/icon-192.png dist/icon-192.png
+cp frontend/icon-512.png dist/icon-512.png
+
+echo "Build ok — dist/index.html gerado com as credenciais injetadas (+ manifest/sw/ícones)."
