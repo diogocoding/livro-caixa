@@ -13,12 +13,12 @@
     theme: {
       extend: {
         colors: {
-          paper: '#EDF1F5',
+          paper: '#F2F4F7',
           surface: '#FFFFFF',
-          soft: '#F5F7FA',
-          rule: '#DCE3EA',
-          ink: '#16212B',
-          dim: '#5C6B79',
+          soft: '#F6F8FA',
+          rule: '#E4E9EF',
+          ink: '#141A21',
+          dim: '#6B7684',
           diogo: '#2F6F5E',
           tiago: '#B8863B',
           warn: '#B5493C',
@@ -29,76 +29,89 @@
           body: ['Inter', 'sans-serif'],
           mono: ['"IBM Plex Mono"', 'monospace'],
         },
+        boxShadow: {
+          card: '0 1px 2px rgba(20,26,33,.04), 0 8px 24px -12px rgba(20,26,33,.10)',
+        },
       },
     },
   };
 </script>
 <style>
-  body{ background:#EDF1F5; }
-  [data-theme="dark"] body{ background:#10141A; }
+  :root{ --accent:#B5493C; }
+  body{ background:#F2F4F7; }
+  [data-theme="dark"] body{ background:#0B0D11; }
   [data-theme="dark"]{ color-scheme: dark; }
-  [data-theme="dark"] .surface{ background:#1B222B !important; }
-  [data-theme="dark"] .soft{ background:#232B36 !important; }
-  [data-theme="dark"] .ink{ color:#E9EDF1 !important; }
-  [data-theme="dark"] .dim{ color:#8B96A3 !important; }
-  [data-theme="dark"] .rule{ border-color:#2C3542 !important; }
-  [data-theme="dark"] .bg-paper{ background:#10141A !important; }
-  [data-theme="dark"] .bg-surface{ background:#1B222B !important; }
-  [data-theme="dark"] .bg-soft{ background:#232B36 !important; }
-  [data-theme="dark"] .border-rule{ border-color:#2C3542 !important; }
-  [data-theme="dark"] .text-ink{ color:#E9EDF1 !important; }
-  [data-theme="dark"] .text-dim{ color:#8B96A3 !important; }
+  [data-theme="dark"] .surface{ background:#131720 !important; }
+  [data-theme="dark"] .soft{ background:#1A1F29 !important; }
+  [data-theme="dark"] .ink{ color:#EDEFF3 !important; }
+  [data-theme="dark"] .dim{ color:#8890A0 !important; }
+  [data-theme="dark"] .rule{ border-color:#232935 !important; }
+  [data-theme="dark"] .bg-paper{ background:#0B0D11 !important; }
+  [data-theme="dark"] .bg-surface{ background:#131720 !important; }
+  [data-theme="dark"] .bg-soft{ background:#1A1F29 !important; }
+  [data-theme="dark"] .border-rule{ border-color:#232935 !important; }
+  [data-theme="dark"] .text-ink{ color:#EDEFF3 !important; }
+  [data-theme="dark"] .text-dim{ color:#8890A0 !important; }
+  [data-theme="dark"] .shadow-card{ box-shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 28px -14px rgba(0,0,0,.55) !important; }
 
-  .spine{ border-left-width:3px; }
+  /* Card padrão: neutro, sem borda colorida lateral — hierarquia vem do eyebrow com ícone */
+  .card{ background:var(--tw-bg-surface,#fff); border:1px solid #E4E9EF; border-radius:1rem; }
+  [data-theme="dark"] .card{ border-color:#232935; }
+  .card-hover{ transition:transform .15s ease, box-shadow .15s ease; }
+  .card-hover:hover{ transform:translateY(-2px); }
+  .eyebrow{ display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+  .eyebrow .ic{ font-size:13px; line-height:1; opacity:.85; }
+
   .info-btn{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:9999px;
-    background:#F5F7FA;color:#5C6B79;font-size:9px;cursor:pointer;border:1px solid #DCE3EA;flex-shrink:0;user-select:none;}
-  .info-pop{display:none;position:absolute;z-index:20;background:#16212B;color:#fff;border-radius:8px;
+    background:#F6F8FA;color:#6B7684;font-size:9px;cursor:pointer;border:1px solid #E4E9EF;flex-shrink:0;user-select:none;}
+  [data-theme="dark"] .info-btn{ background:#1A1F29; color:#8890A0; border-color:#232935; }
+  .info-pop{display:none;position:absolute;z-index:20;background:#141A21;color:#fff;border-radius:10px;
     padding:10px 12px;font-size:11.5px;line-height:1.5;width:220px;font-family:'Inter',sans-serif;
     box-shadow:0 12px 30px rgba(0,0,0,.25);margin-top:6px;}
   .info-pop.show{display:block;}
   select, input[type=date]{ font-family:'Inter',sans-serif; }
+  ::selection{ background:#B5493C33; }
 </style>
 </head>
 <body class="font-body text-ink" data-theme="light">
 <div class="max-w-6xl mx-auto px-4 py-6 pb-24">
 
-  <header class="flex justify-between items-center flex-wrap gap-3 mb-5">
+  <header class="flex justify-between items-center flex-wrap gap-3 mb-6">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-md bg-ink flex items-center justify-center relative overflow-hidden">
+      <div class="w-10 h-10 rounded-xl bg-ink flex items-center justify-center relative overflow-hidden shadow-card">
         <div class="absolute left-0 top-0 bottom-0 w-1.5 bg-diogo"></div>
         <div class="absolute left-1.5 top-0 bottom-0 w-1.5 bg-tiago"></div>
         <span class="font-display font-bold text-white text-sm ml-1">LC</span>
       </div>
       <div>
-        <h1 class="font-display font-bold text-xl leading-none">Livro-Caixa</h1>
-        <div class="text-dim text-xs mt-1 font-mono" id="statusLine">carregando…</div>
+        <h1 class="font-display font-bold text-xl leading-none tracking-tight">Livro-Caixa</h1>
+        <div class="text-dim text-[11px] mt-1 font-mono" id="statusLine">carregando…</div>
       </div>
     </div>
     <div class="flex gap-2 items-center">
-      <button id="themeBtn" class="bg-surface border border-rule rounded-lg px-3 py-2 text-xs font-semibold shadow-sm hover:border-dim">🌙</button>
-      <button id="syncBtn" class="bg-ink text-white rounded-lg px-4 py-2 text-xs font-semibold shadow-sm hover:opacity-90">↻ Sincronizar</button>
-      <button id="cfgBtn" class="bg-surface border border-rule rounded-lg px-4 py-2 text-xs font-semibold shadow-sm hover:border-dim">Config</button>
+      <button id="themeBtn" title="Alternar tema" class="card card-hover w-9 h-9 flex items-center justify-center text-sm shadow-card">🌙</button>
+      <button id="syncBtn" class="bg-ink text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-card hover:opacity-90 flex items-center gap-1.5">↻ Sincronizar</button>
     </div>
   </header>
 
-  <nav class="flex gap-1 bg-surface border border-rule rounded-xl p-1 mb-6 shadow-sm overflow-x-auto">
-    <button class="tab-btn flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-dim hover:text-ink border-b-2 border-transparent" data-tab="geral">Visão Geral</button>
-    <button class="tab-btn flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-dim hover:text-ink border-b-2 border-transparent" data-tab="categorias">Categorias</button>
-    <button class="tab-btn flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-dim hover:text-ink border-b-2 border-transparent" data-tab="dividas">Dívidas</button>
-    <button class="tab-btn flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-dim hover:text-ink border-b-2 border-transparent" data-tab="faturas">Faturas</button>
-    <button class="tab-btn flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold whitespace-nowrap text-dim hover:text-ink border-b-2 border-transparent" data-tab="transacoes">Transações</button>
+  <nav class="flex gap-1 bg-soft border border-rule rounded-2xl p-1.5 mb-6 overflow-x-auto">
+    <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="geral">Visão Geral</button>
+    <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="categorias">Categorias</button>
+    <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="dividas">Dívidas</button>
+    <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="faturas">Faturas</button>
+    <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="transacoes">Transações</button>
   </nav>
 
   <section class="tab-panel" id="tab-geral">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4" id="cards"></div>
     <div class="h-2 rounded-full overflow-hidden flex mb-4" id="splitTrack"></div>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4" id="compare"></div>
-    <div class="bg-surface border border-rule rounded-xl px-5 py-3 mb-3 text-sm shadow-sm" id="insight"></div>
-    <div class="bg-surface border border-rule rounded-xl px-5 py-3 mb-3 text-sm shadow-sm" id="ritmo"></div>
-    <div class="bg-surface border border-rule rounded-xl px-5 py-3 mb-5 text-xs text-dim shadow-sm" id="movimentacoes"></div>
+    <div class="card px-5 py-4 mb-3 text-sm shadow-card" id="insight"></div>
+    <div class="card px-5 py-4 mb-3 text-sm shadow-card" id="ritmo"></div>
+    <div class="card px-5 py-4 mb-5 text-xs text-dim shadow-card" id="movimentacoes"></div>
 
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm">
-      <h2 class="font-display font-semibold text-base mb-1">Evolução mensal</h2>
+    <div class="card p-6 shadow-card">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📈</span>Evolução mensal</h2>
       <div class="text-dim text-xs mb-4">Gasto real por pessoa (sem transferências/investimentos), últimos meses</div>
       <canvas id="monthChart" height="200"></canvas>
     </div>
@@ -106,25 +119,25 @@
 
   <section class="tab-panel hidden" id="tab-categorias">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-      <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-diogo rounded-xl p-6 shadow-sm">
-        <h2 class="font-display font-semibold text-base mb-1">Gasto por categoria</h2>
+      <div class="card p-6 shadow-card">
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🗂️</span>Gasto por categoria</h2>
         <div class="text-dim text-xs mb-4">Mês atual · <span class="text-diogo font-semibold">● Diogo</span> &nbsp;<span class="text-tiago font-semibold">● Tiago</span></div>
         <div class="flex flex-col gap-3" id="catBars"></div>
       </div>
-      <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-info rounded-xl p-6 shadow-sm">
-        <h2 class="font-display font-semibold text-base mb-1">Fixo vs variável <span id="fvInfo"></span></h2>
+      <div class="card p-6 shadow-card">
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">⚖️</span>Fixo vs variável <span id="fvInfo"></span></h2>
         <div class="text-dim text-xs mb-4">Quanto do gasto do mês é conta recorrente vs dia a dia</div>
         <div class="flex flex-col gap-3" id="fixedVarBars"></div>
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-diogo rounded-xl p-6 shadow-sm">
-        <h2 class="font-display font-semibold text-base mb-1">Gastos frequentes · Diogo</h2>
+      <div class="card p-6 shadow-card">
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🔁</span>Gastos frequentes · Diogo</h2>
         <div class="text-dim text-xs mb-4">Últimos 3 meses</div>
         <div class="flex flex-col gap-3" id="frequentBarsYou"></div>
       </div>
-      <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-tiago rounded-xl p-6 shadow-sm">
-        <h2 class="font-display font-semibold text-base mb-1">Gastos frequentes · Tiago</h2>
+      <div class="card p-6 shadow-card">
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🔁</span>Gastos frequentes · Tiago</h2>
         <div class="text-dim text-xs mb-4">Últimos 3 meses</div>
         <div class="flex flex-col gap-3" id="frequentBarsPartner"></div>
       </div>
@@ -132,33 +145,33 @@
   </section>
 
   <section class="tab-panel hidden" id="tab-dividas">
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-warn rounded-xl p-6 shadow-sm mb-4">
-      <h2 class="font-display font-semibold text-base mb-1">Parcelas em aberto</h2>
+    <div class="card p-6 shadow-card mb-4">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">⏳</span>Parcelas em aberto</h2>
       <div class="text-dim text-xs mb-4">O que ainda falta pagar de compras parceladas (inclui financiamento de loja)</div>
       <div id="upcomingBars"></div>
     </div>
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm mb-4">
-      <h2 class="font-display font-semibold text-base mb-1">Cartões de crédito</h2>
+    <div class="card p-6 shadow-card mb-4">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">💳</span>Cartões de crédito</h2>
       <div class="text-dim text-xs mb-4">Um cartão por vez, com limite e % utilizado</div>
       <div id="cardsList"></div>
     </div>
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm mb-4">
-      <h2 class="font-display font-semibold text-base mb-1">Evolução da dívida no cartão</h2>
+    <div class="card p-6 shadow-card mb-4">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📉</span>Evolução da dívida no cartão</h2>
       <div class="text-dim text-xs mb-4">Saldo devedor ao longo do tempo, por pessoa (começou a registrar agora)</div>
       <canvas id="debtChart" height="200"></canvas>
     </div>
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm hidden" id="loansPanel">
-      <h2 class="font-display font-semibold text-base mb-1">Empréstimos</h2>
+    <div class="card p-6 shadow-card hidden" id="loansPanel">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🏛️</span>Empréstimos</h2>
       <div class="text-dim text-xs mb-4">Contratos de empréstimo formal (fora do cartão)</div>
       <div id="loansBars"></div>
     </div>
   </section>
 
   <section class="tab-panel hidden" id="tab-faturas">
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm mb-4">
+    <div class="card p-6 shadow-card mb-4">
       <div class="flex justify-between items-center flex-wrap gap-3 mb-4">
         <div>
-          <h2 class="font-display font-semibold text-base mb-1">Faturas</h2>
+          <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🧾</span>Faturas</h2>
           <div class="text-dim text-xs">Fatura atual e próximas faturas previstas</div>
         </div>
         <div class="flex gap-2 items-center">
@@ -177,15 +190,15 @@
       </div>
       <div id="billsList"></div>
     </div>
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm">
-      <h2 class="font-display font-semibold text-base mb-1">Evolução das faturas</h2>
+    <div class="card p-6 shadow-card">
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📊</span>Evolução das faturas</h2>
       <div class="text-dim text-xs mb-4">Valor de cada fatura fechada, mês a mês, por pessoa (usa o mesmo filtro de quantidade acima)</div>
       <canvas id="billsChart" height="220"></canvas>
     </div>
   </section>
 
   <section class="tab-panel hidden" id="tab-transacoes">
-    <div class="bg-surface border-l-4 border-t border-r border-b border-rule spine border-ink rounded-xl p-6 shadow-sm">
+    <div class="card p-6 shadow-card">
       <div class="flex items-center justify-center gap-4 mb-4" id="monthNavWrap">
         <button id="prevMonth" class="bg-soft border border-rule rounded-lg w-8 h-8 text-sm hover:border-dim">‹</button>
         <div class="font-mono text-sm font-semibold min-w-[140px] text-center" id="monthLabel"></div>
@@ -215,17 +228,6 @@
       <div id="txTableWrap"><div class="text-dim text-sm py-8 text-center">Configure a API para carregar os dados.</div></div>
     </div>
   </section>
-</div>
-
-<div class="hidden fixed inset-0 bg-black/40 items-center justify-center z-30" id="modalBg">
-  <div class="bg-surface border border-rule rounded-2xl p-6 w-80 shadow-2xl">
-    <h3 class="font-display font-semibold text-lg mb-1">Configuração</h3>
-    <label class="block text-xs text-dim font-semibold mt-4 mb-1">URL do Worker</label>
-    <input id="apiUrl" class="w-full bg-soft border border-rule rounded-lg px-3 py-2 font-mono text-xs" placeholder="https://financas-worker.SEU-USUARIO.workers.dev" />
-    <label class="block text-xs text-dim font-semibold mt-4 mb-1">Senha da API (API_SECRET)</label>
-    <input id="apiSecret" type="password" class="w-full bg-soft border border-rule rounded-lg px-3 py-2 font-mono text-xs" />
-    <button id="saveCfg" class="mt-5 w-full bg-ink text-white font-semibold py-2.5 rounded-lg">Salvar</button>
-  </div>
 </div>
 
 <script>
@@ -284,16 +286,20 @@ document.getElementById('themeBtn').onclick = ()=>{
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.onclick = ()=>{
-    document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.remove('bg-ink','text-white'); b.classList.add('text-dim'); });
+    document.querySelectorAll('.tab-btn').forEach(b=>{ b.classList.remove('bg-surface','text-ink','shadow-card'); b.classList.add('text-dim'); });
     document.querySelectorAll('.tab-panel').forEach(p=>p.classList.add('hidden'));
-    btn.classList.add('bg-ink','text-white'); btn.classList.remove('text-dim');
+    btn.classList.add('bg-surface','text-ink','shadow-card'); btn.classList.remove('text-dim');
     document.getElementById('tab-'+btn.dataset.tab).classList.remove('hidden');
   };
 });
-document.querySelector('.tab-btn[data-tab="geral"]').classList.add('bg-ink','text-white');
+document.querySelector('.tab-btn[data-tab="geral"]').classList.add('bg-surface','text-ink','shadow-card');
 document.querySelector('.tab-btn[data-tab="geral"]').classList.remove('text-dim');
 
-let cfg = { url: localStorage.getItem('fin_api_url')||'', secret: localStorage.getItem('fin_api_secret')||'' };
+// URL do Worker e senha da API são injetadas automaticamente no momento do deploy
+// (Cloudflare Pages > Settings > Environment variables), a partir do build.sh na raiz
+// do repositório. Nada disso fica salvo no código nem precisa ser digitado por vocês —
+// ver README.md, seção "Deploy do frontend".
+const cfg = { url: '__API_URL__', secret: '__API_SECRET__' };
 let allCategoriesSeen = [...CATEGORIES];
 let currentMonth = new Date().toISOString().slice(0,7);
 let datePreset = 'mes';
@@ -309,21 +315,6 @@ function api(path){
   });
 }
 
-document.getElementById('cfgBtn').onclick = ()=>{
-  document.getElementById('apiUrl').value = cfg.url;
-  document.getElementById('apiSecret').value = cfg.secret;
-  document.getElementById('modalBg').classList.remove('hidden');
-  document.getElementById('modalBg').classList.add('flex');
-};
-document.getElementById('saveCfg').onclick = ()=>{
-  cfg.url = document.getElementById('apiUrl').value.replace(/\/$/,'');
-  cfg.secret = document.getElementById('apiSecret').value;
-  localStorage.setItem('fin_api_url', cfg.url);
-  localStorage.setItem('fin_api_secret', cfg.secret);
-  document.getElementById('modalBg').classList.add('hidden');
-  document.getElementById('modalBg').classList.remove('flex');
-  loadAll();
-};
 document.getElementById('syncBtn').onclick = async ()=>{
   document.getElementById('statusLine').textContent = 'sincronizando com o(s) banco(s)…';
   try{ await api('/api/sync'); await loadAll(); }
@@ -335,8 +326,8 @@ function fmt(n){ return (n||0).toLocaleString('pt-BR',{style:'currency',currency
 let monthChart, debtChart, billsChart;
 
 async function loadAll(){
-  if(!cfg.url || !cfg.secret){
-    document.getElementById('statusLine').textContent = 'clique em "Config" para conectar sua API';
+  if(!cfg.url || cfg.url.startsWith('__') || !cfg.secret || cfg.secret.startsWith('__')){
+    document.getElementById('statusLine').textContent = 'faltou configurar API_URL/API_SECRET no Cloudflare Pages (ver README)';
     return;
   }
   document.getElementById('statusLine').textContent = 'carregando…';
@@ -550,22 +541,22 @@ function renderCards(summary, accounts){
   const gastoDiogo = summary.byPerson.find(p=>p.person_id==='you')?.total || 0;
   const gastoTiago = summary.byPerson.find(p=>p.person_id==='partner')?.total || 0;
 
-  const cardBase = 'bg-surface border-l-4 border-t border-r border-b border-rule spine rounded-xl p-5 shadow-sm';
+  const cardBase = 'card card-hover p-5 shadow-card';
   document.getElementById('cards').innerHTML = `
-    <div class="${cardBase} border-ink">
-      <div class="text-xs text-dim font-semibold mb-2 flex items-center gap-1">SALDO EM CONTA ${infoBtn('Soma o saldo de todas as contas bancárias (não cartão) de Diogo e Tiago, puxado direto do banco na última sincronização.')}</div>
+    <div class="${cardBase}">
+      <div class="eyebrow text-dim mb-3"><span class="ic">🏦</span>SALDO EM CONTA ${infoBtn('Soma o saldo de todas as contas bancárias (não cartão) de Diogo e Tiago, puxado direto do banco na última sincronização.')}</div>
       <div class="font-mono font-bold text-2xl">${fmt(totalSaldo)}</div>
-      <div class="text-xs text-dim mt-2 font-mono">${avatar('Diogo','bg-diogo')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(porPessoaSaldo.partner)}</div>
+      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(porPessoaSaldo.partner)}</div>
     </div>
-    <div class="${cardBase} border-info">
-      <div class="text-xs text-dim font-semibold mb-2 flex items-center gap-1">GASTO REAL NO MÊS ${infoBtn('Soma das compras/despesas do mês, excluindo transferências entre contas e movimentos de investimento (que não são gasto de verdade).')}</div>
+    <div class="${cardBase}">
+      <div class="eyebrow text-dim mb-3"><span class="ic">📊</span>GASTO REAL NO MÊS ${infoBtn('Soma das compras/despesas do mês, excluindo transferências entre contas e movimentos de investimento (que não são gasto de verdade).')}</div>
       <div class="font-mono font-bold text-2xl">${fmt(gastoMes)}</div>
-      <div class="text-xs text-dim mt-2 font-mono">${avatar('Diogo','bg-diogo')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(gastoTiago)}</div>
+      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(gastoTiago)}</div>
     </div>
-    <div class="${cardBase} ${pctLimite>85?'border-warn':'border-ink'}">
-      <div class="text-xs text-dim font-semibold mb-2 flex items-center gap-1">CARTÃO USADO ${infoBtn('Soma do saldo devedor atual de todos os cartões de crédito, dividido pela soma dos limites totais.')}</div>
+    <div class="${cardBase}">
+      <div class="eyebrow text-dim mb-3"><span class="ic">💳</span>CARTÃO USADO ${infoBtn('Soma do saldo devedor atual de todos os cartões de crédito, dividido pela soma dos limites totais.')}</div>
       <div class="font-mono font-bold text-2xl ${pctLimite>85?'text-warn':''}">${fmt(totalUsadoCartao)} <span class="text-sm text-dim">(${pctLimite.toFixed(0)}%)</span></div>
-      <div class="text-xs text-dim mt-2 font-mono">${avatar('Diogo','bg-diogo')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
+      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
     </div>
   `;
 
@@ -592,15 +583,15 @@ function renderComparison(summary, gastoDiogo, gastoTiago){
   const catDiogo = (summary.byCategoryPerson||[]).filter(r=>r.person_id==='you').sort((a,b)=>b.total-a.total)[0];
   const catTiago = (summary.byCategoryPerson||[]).filter(r=>r.person_id==='partner').sort((a,b)=>b.total-a.total)[0];
 
-  const whoBase = 'bg-surface border-l-4 border-t border-r border-b border-rule spine rounded-xl p-5 shadow-sm cursor-pointer hover:-translate-y-0.5 transition-transform';
+  const whoBase = 'card p-5 shadow-card cursor-pointer hover:-translate-y-0.5 transition-transform';
   document.getElementById('compare').innerHTML = `
-    <div class="${whoBase} border-diogo" onclick="goToPersonTransactions('you')">
+    <div class="${whoBase}" onclick="goToPersonTransactions('you')">
       <div class="font-display font-bold text-base mb-2 flex items-center text-diogo">${avatar('Diogo','bg-diogo')} Diogo</div>
       <div class="font-mono font-bold text-xl">${fmt(gastoDiogo)}</div>
       <div class="text-xs text-dim mt-1 mb-2">${pctDiogo.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Diogo dividido pelo gasto real total dos dois no mês corrente.')}</div>
       <div class="text-xs text-dim">${catDiogo ? `Categoria onde mais gasta: <b class="text-ink">${catDiogo.category}</b> (${fmt(catDiogo.total)})` : 'Sem gastos categorizados ainda'}</div>
     </div>
-    <div class="${whoBase} border-tiago" onclick="goToPersonTransactions('partner')">
+    <div class="${whoBase}" onclick="goToPersonTransactions('partner')">
       <div class="font-display font-bold text-base mb-2 flex items-center text-tiago">${avatar('Tiago','bg-tiago')} Tiago</div>
       <div class="font-mono font-bold text-xl">${fmt(gastoTiago)}</div>
       <div class="text-xs text-dim mt-1 mb-2">${pctTiago.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Tiago dividido pelo gasto real total dos dois no mês corrente.')}</div>
