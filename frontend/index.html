@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@0.462.0/dist/umd/lucide.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -55,7 +56,7 @@
   [data-theme="dark"] .shadow-card{ box-shadow:0 1px 2px rgba(0,0,0,.3), 0 12px 28px -14px rgba(0,0,0,.55) !important; }
 
   /* Card padrão: neutro, sem borda colorida lateral — hierarquia vem do eyebrow com ícone */
-  .card{ background:var(--tw-bg-surface,#fff); border:1px solid #E4E9EF; border-radius:1rem; }
+  .card{ background:#fff; border:1px solid #E4E9EF; border-radius:1rem; }
   [data-theme="dark"] .card{ border-color:#232935; }
   .card-hover{ transition:transform .15s ease, box-shadow .15s ease; }
   .card-hover:hover{ transform:translateY(-2px); }
@@ -71,6 +72,53 @@
   .info-pop.show{display:block;}
   select, input[type=date]{ font-family:'Inter',sans-serif; }
   ::selection{ background:#B5493C33; }
+
+  /* Ícones (Lucide) — peso de linha único em todo o app */
+  .icn{ display:inline-flex; }
+  .icn svg{ width:1em; height:1em; stroke-width:2.1; }
+  .eyebrow .ic{ font-size:14px; line-height:1; opacity:.85; display:inline-flex; }
+  .eyebrow .ic svg{ width:14px; height:14px; }
+  h2 .icn svg{ width:15px; height:15px; }
+  [data-theme="dark"] .icn svg{ stroke:currentColor; }
+
+  /* Select customizado — mesma pele dos cards, seta própria, mantém <select> nativo (acessibilidade/teclado) */
+  .select-custom{
+    appearance:none; -webkit-appearance:none; -moz-appearance:none;
+    background-color:#F6F8FA; border:1px solid #E4E9EF; color:#141A21;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%236B7684' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 8px center; background-size:14px;
+    padding-right:28px; cursor:pointer; transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .select-custom:hover{ border-color:#C7CFDA; }
+  .select-custom:focus{ outline:none; border-color:#B5493C; box-shadow:0 0 0 3px rgba(181,73,60,.14); }
+  [data-theme="dark"] .select-custom{
+    background-color:#1A1F29; border-color:#232935; color:#EDEFF3;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%238890A0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  }
+  [data-theme="dark"] .select-custom:focus{ box-shadow:0 0 0 3px rgba(181,73,60,.22); }
+  .select-custom option{ background:#fff; color:#141A21; }
+  [data-theme="dark"] .select-custom option{ background:#1A1F29; color:#EDEFF3; }
+  .tag-select.select-custom{ background-size:11px; background-position:right 6px center; padding-right:20px; }
+
+  /* Estados vazios */
+  .empty-state{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:10px; padding:28px 16px; color:#6B7684; }
+  [data-theme="dark"] .empty-state{ color:#8890A0; }
+  .empty-state .icn{ width:36px; height:36px; border-radius:9999px; background:#F6F8FA; align-items:center; justify-content:center; color:#9AA3B0; }
+  [data-theme="dark"] .empty-state .icn{ background:#1A1F29; color:#5D6474; }
+  .empty-state .icn svg{ width:17px; height:17px; }
+  .empty-state span{ font-size:12.5px; max-width:340px; line-height:1.5; }
+
+  /* Skeleton / shimmer */
+  .skel{ position:relative; overflow:hidden; background:#EEF1F5; border-radius:8px; }
+  [data-theme="dark"] .skel{ background:#1C222D; }
+  .skel::after{ content:''; position:absolute; inset:0; transform:translateX(-100%);
+    background:linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); animation:shimmer 1.4s infinite; }
+  [data-theme="dark"] .skel::after{ background:linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); }
+  @keyframes shimmer{ 100%{ transform:translateX(100%); } }
+
+  /* Ritmo tipográfico — números principais maiores, texto de apoio menor e mais discreto */
+  .num-lg{ font-size:1.75rem; line-height:1.15; letter-spacing:-.01em; }
+  .num-support{ font-size:11px; }
 </style>
 </head>
 <body class="font-body text-ink" data-theme="light">
@@ -89,8 +137,8 @@
       </div>
     </div>
     <div class="flex gap-2 items-center">
-      <button id="themeBtn" title="Alternar tema" class="card card-hover w-9 h-9 flex items-center justify-center text-sm shadow-card">🌙</button>
-      <button id="syncBtn" class="bg-ink text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-card hover:opacity-90 flex items-center gap-1.5">↻ Sincronizar</button>
+      <button id="themeBtn" title="Alternar tema" class="card card-hover w-9 h-9 flex items-center justify-center text-sm shadow-card"><span class="icn" data-lucide="moon"></span></button>
+      <button id="syncBtn" class="bg-ink text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-card hover:opacity-90 flex items-center gap-1.5"><span class="icn" data-lucide="refresh-cw"></span>Sincronizar</button>
     </div>
   </header>
 
@@ -111,7 +159,7 @@
     <div class="card px-5 py-4 mb-5 text-xs text-dim shadow-card" id="movimentacoes"></div>
 
     <div class="card p-6 shadow-card">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📈</span>Evolução mensal</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="trending-up"></span>Evolução mensal</h2>
       <div class="text-dim text-xs mb-4">Gasto real por pessoa (sem transferências/investimentos), últimos meses</div>
       <canvas id="monthChart" height="200"></canvas>
     </div>
@@ -120,24 +168,24 @@
   <section class="tab-panel hidden" id="tab-categorias">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
       <div class="card p-6 shadow-card">
-        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🗂️</span>Gasto por categoria</h2>
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="folder-open"></span>Gasto por categoria</h2>
         <div class="text-dim text-xs mb-4">Mês atual · <span class="text-diogo font-semibold">● Diogo</span> &nbsp;<span class="text-tiago font-semibold">● Tiago</span></div>
         <div class="flex flex-col gap-3" id="catBars"></div>
       </div>
       <div class="card p-6 shadow-card">
-        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">⚖️</span>Fixo vs variável <span id="fvInfo"></span></h2>
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="scale"></span>Fixo vs variável <span id="fvInfo"></span></h2>
         <div class="text-dim text-xs mb-4">Quanto do gasto do mês é conta recorrente vs dia a dia</div>
         <div class="flex flex-col gap-3" id="fixedVarBars"></div>
       </div>
     </div>
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div class="card p-6 shadow-card">
-        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🔁</span>Gastos frequentes · Diogo</h2>
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="repeat"></span>Gastos frequentes · Diogo</h2>
         <div class="text-dim text-xs mb-4">Últimos 3 meses</div>
         <div class="flex flex-col gap-3" id="frequentBarsYou"></div>
       </div>
       <div class="card p-6 shadow-card">
-        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🔁</span>Gastos frequentes · Tiago</h2>
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="repeat"></span>Gastos frequentes · Tiago</h2>
         <div class="text-dim text-xs mb-4">Últimos 3 meses</div>
         <div class="flex flex-col gap-3" id="frequentBarsPartner"></div>
       </div>
@@ -146,22 +194,22 @@
 
   <section class="tab-panel hidden" id="tab-dividas">
     <div class="card p-6 shadow-card mb-4">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">⏳</span>Parcelas em aberto</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="hourglass"></span>Parcelas em aberto</h2>
       <div class="text-dim text-xs mb-4">O que ainda falta pagar de compras parceladas (inclui financiamento de loja)</div>
       <div id="upcomingBars"></div>
     </div>
     <div class="card p-6 shadow-card mb-4">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">💳</span>Cartões de crédito</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="credit-card"></span>Cartões de crédito</h2>
       <div class="text-dim text-xs mb-4">Um cartão por vez, com limite e % utilizado</div>
       <div id="cardsList"></div>
     </div>
     <div class="card p-6 shadow-card mb-4">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📉</span>Evolução da dívida no cartão</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="trending-down"></span>Evolução da dívida no cartão</h2>
       <div class="text-dim text-xs mb-4">Saldo devedor ao longo do tempo, por pessoa (começou a registrar agora)</div>
       <canvas id="debtChart" height="200"></canvas>
     </div>
     <div class="card p-6 shadow-card hidden" id="loansPanel">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🏛️</span>Empréstimos</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="landmark"></span>Empréstimos</h2>
       <div class="text-dim text-xs mb-4">Contratos de empréstimo formal (fora do cartão)</div>
       <div id="loansBars"></div>
     </div>
@@ -171,7 +219,7 @@
     <div class="card p-6 shadow-card mb-4">
       <div class="flex justify-between items-center flex-wrap gap-3 mb-4">
         <div>
-          <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">🧾</span>Faturas</h2>
+          <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="receipt"></span>Faturas</h2>
           <div class="text-dim text-xs">Fatura atual e próximas faturas previstas</div>
         </div>
         <div class="flex gap-2 items-center">
@@ -180,7 +228,7 @@
             <span class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer text-dim" data-val="you">Diogo</span>
             <span class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer text-dim" data-val="partner">Tiago</span>
           </div>
-          <select id="fBillsCount" class="bg-soft border border-rule rounded-lg px-3 py-2 text-xs font-semibold">
+          <select id="fBillsCount" class="select-custom rounded-lg px-3 py-2 text-xs font-semibold">
             <option value="6">Últimas 6</option>
             <option value="12">Últimas 12</option>
             <option value="24">Últimas 24</option>
@@ -191,7 +239,7 @@
       <div id="billsList"></div>
     </div>
     <div class="card p-6 shadow-card">
-      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="text-sm">📊</span>Evolução das faturas</h2>
+      <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="bar-chart-3"></span>Evolução das faturas</h2>
       <div class="text-dim text-xs mb-4">Valor de cada fatura fechada, mês a mês, por pessoa (usa o mesmo filtro de quantidade acima)</div>
       <canvas id="billsChart" height="220"></canvas>
     </div>
@@ -200,9 +248,9 @@
   <section class="tab-panel hidden" id="tab-transacoes">
     <div class="card p-6 shadow-card">
       <div class="flex items-center justify-center gap-4 mb-4" id="monthNavWrap">
-        <button id="prevMonth" class="bg-soft border border-rule rounded-lg w-8 h-8 text-sm hover:border-dim">‹</button>
+        <button id="prevMonth" class="bg-soft border border-rule rounded-lg w-8 h-8 text-sm hover:border-dim flex items-center justify-center"><span class="icn" data-lucide="chevron-left"></span></button>
         <div class="font-mono text-sm font-semibold min-w-[140px] text-center" id="monthLabel"></div>
-        <button id="nextMonth" class="bg-soft border border-rule rounded-lg w-8 h-8 text-sm hover:border-dim">›</button>
+        <button id="nextMonth" class="bg-soft border border-rule rounded-lg w-8 h-8 text-sm hover:border-dim flex items-center justify-center"><span class="icn" data-lucide="chevron-right"></span></button>
       </div>
       <div class="flex gap-2 flex-wrap items-center mb-3">
         <span class="preset active px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer border border-rule bg-soft text-dim" data-preset="mes">Este mês</span>
@@ -218,14 +266,14 @@
           <span class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer text-dim" data-val="entrada">Entradas</span>
           <span class="px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer text-dim" data-val="saida">Saídas</span>
         </div>
-        <select id="fPerson" class="bg-soft border border-rule rounded-lg px-3 py-2 text-xs">
+        <select id="fPerson" class="select-custom rounded-lg px-3 py-2 text-xs">
           <option value="">Todos</option><option value="you">Diogo</option><option value="partner">Tiago</option>
         </select>
-        <select id="fCategory" class="bg-soft border border-rule rounded-lg px-3 py-2 text-xs">
+        <select id="fCategory" class="select-custom rounded-lg px-3 py-2 text-xs">
           <option value="">Todas categorias</option>
         </select>
       </div>
-      <div id="txTableWrap"><div class="text-dim text-sm py-8 text-center">Configure a API para carregar os dados.</div></div>
+      <div id="txTableWrap"><div class="empty-state"><span class="icn" data-lucide="plug-zap"></span><span>Configure a API para carregar os dados.</span></div></div>
     </div>
   </section>
 </div>
@@ -240,6 +288,16 @@ function colorFor(cat){
   for (let i=0;i<cat.length;i++) hash = cat.charCodeAt(i) + ((hash<<5)-hash);
   const hue = Math.abs(hash) % 360;
   return `hsl(${hue},45%,42%)`;
+}
+
+function refreshIcons(){ if (window.lucide) lucide.createIcons(); }
+
+function emptyState(icon, text){
+  return `<div class="empty-state"><span class="icn" data-lucide="${icon}"></span><span>${text}</span></div>`;
+}
+
+function skeletonCards(n, cls){
+  return Array.from({length:n}).map(()=>`<div class="skel ${cls}"></div>`).join('');
 }
 
 let infoCounter = 0;
@@ -275,12 +333,17 @@ function ring(pct, hexColor){
 
 const savedTheme = localStorage.getItem('fin_theme') || 'light';
 document.body.setAttribute('data-theme', savedTheme);
-if (savedTheme === 'dark') document.getElementById('themeBtn').textContent = '☀️';
+function setThemeIcon(isDark){
+  const el = document.getElementById('themeBtn').querySelector('.icn');
+  el.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+  refreshIcons();
+}
+if (savedTheme === 'dark') setThemeIcon(true);
 document.getElementById('themeBtn').onclick = ()=>{
   const isDark = document.body.getAttribute('data-theme') === 'dark';
   const next = isDark ? 'light' : 'dark';
   document.body.setAttribute('data-theme', next);
-  document.getElementById('themeBtn').textContent = isDark ? '🌙' : '☀️';
+  setThemeIcon(!isDark);
   localStorage.setItem('fin_theme', next);
 };
 
@@ -361,6 +424,7 @@ async function loadAll(){
 
     await loadTransactions();
     document.getElementById('statusLine').textContent = 'atualizado agora • sync automático a cada 10 minutos';
+    refreshIcons();
   }catch(e){
     document.getElementById('statusLine').textContent = 'erro: ' + e.message;
   }
@@ -380,9 +444,9 @@ document.getElementById('fBillsCount').onchange = ()=>{ drawBillsList(); drawBil
 function drawBillsList(){
   const el = document.getElementById('billsList');
   const n = Number(document.getElementById('fBillsCount').value);
-  let bills = billsData;
+  let bills = billsAllData;
   if (billsPersonFiltro) bills = bills.filter(b=>b.person_id === billsPersonFiltro);
-  if (!bills.length){ el.innerHTML = '<div class="text-dim text-xs py-4">Nenhuma fatura recente disponível ainda (nem todo banco expõe isso).</div>'; return; }
+  if (!bills.length){ el.innerHTML = emptyState('receipt', 'Nenhuma fatura recente disponível ainda (nem todo banco expõe isso).'); refreshIcons(); return; }
 
   const hoje = new Date().toISOString().slice(0,10);
   let ordenadas = [...bills].sort((a,b)=> (a.due_date||'').localeCompare(b.due_date||''));
@@ -397,7 +461,7 @@ function drawBillsList(){
     html += `
       <div class="bg-soft rounded-xl px-5 py-4 mb-4">
         <div class="text-xs text-dim mb-1 flex items-center">${avatar(pessoa,cls)}Próxima fatura · ${proxima.account_name}</div>
-        <div class="font-mono font-bold text-2xl">${fmt(proxima.total_amount)}</div>
+        <div class="font-mono font-bold num-lg">${fmt(proxima.total_amount)}</div>
         <div class="text-xs text-dim mt-1">Vencimento ${new Date(proxima.due_date).toLocaleDateString('pt-BR')}</div>
       </div>`;
   }
@@ -466,7 +530,7 @@ function renderLoans(loans){
   if (!loans || !loans.length){ panel.classList.add('hidden'); return; }
   panel.classList.remove('hidden');
   const rows = loans.map(l=>({ category: `${l.loan_type || 'Empréstimo'} (${l.person_id==='you'?'Diogo':'Tiago'})`, total: l.outstanding_balance || 0 }));
-  renderBarList('loansBars', rows, 'Nenhum empréstimo ativo.');
+  renderBarList('loansBars', rows, 'Nenhum empréstimo ativo.', 'landmark');
 }
 
 function renderDebtChart(rows){
@@ -500,7 +564,7 @@ function renderDebtChart(rows){
 function renderCardsList(accounts){
   const el = document.getElementById('cardsList');
   const cards = accounts.filter(a=>a.type==='CREDIT');
-  if (!cards.length){ el.innerHTML = '<div class="text-dim text-xs py-4">Nenhum cartão conectado.</div>'; return; }
+  if (!cards.length){ el.innerHTML = emptyState('credit-card', 'Nenhum cartão conectado.'); refreshIcons(); return; }
 
   el.innerHTML = cards.map(c=>{
     const usado = Math.abs(c.balance||0);
@@ -544,19 +608,19 @@ function renderCards(summary, accounts){
   const cardBase = 'card card-hover p-5 shadow-card';
   document.getElementById('cards').innerHTML = `
     <div class="${cardBase}">
-      <div class="eyebrow text-dim mb-3"><span class="ic">🏦</span>SALDO EM CONTA ${infoBtn('Soma o saldo de todas as contas bancárias (não cartão) de Diogo e Tiago, puxado direto do banco na última sincronização.')}</div>
-      <div class="font-mono font-bold text-2xl">${fmt(totalSaldo)}</div>
-      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(porPessoaSaldo.partner)}</div>
+      <div class="eyebrow text-dim mb-3"><span class="ic" data-lucide="landmark"></span>SALDO EM CONTA ${infoBtn('Soma o saldo de todas as contas bancárias (não cartão) de Diogo e Tiago, puxado direto do banco na última sincronização.')}</div>
+      <div class="font-mono font-bold num-lg">${fmt(totalSaldo)}</div>
+      <div class="num-support text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(porPessoaSaldo.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(porPessoaSaldo.partner)}</div>
     </div>
     <div class="${cardBase}">
-      <div class="eyebrow text-dim mb-3"><span class="ic">📊</span>GASTO REAL NO MÊS ${infoBtn('Soma das compras/despesas do mês, excluindo transferências entre contas e movimentos de investimento (que não são gasto de verdade).')}</div>
-      <div class="font-mono font-bold text-2xl">${fmt(gastoMes)}</div>
-      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(gastoTiago)}</div>
+      <div class="eyebrow text-dim mb-3"><span class="ic" data-lucide="bar-chart-3"></span>GASTO REAL NO MÊS ${infoBtn('Soma das compras/despesas do mês, excluindo transferências entre contas e movimentos de investimento (que não são gasto de verdade).')}</div>
+      <div class="font-mono font-bold num-lg">${fmt(gastoMes)}</div>
+      <div class="num-support text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${fmt(gastoDiogo)} &nbsp; ${avatar('Tiago','bg-tiago')}${fmt(gastoTiago)}</div>
     </div>
     <div class="${cardBase}">
-      <div class="eyebrow text-dim mb-3"><span class="ic">💳</span>CARTÃO USADO ${infoBtn('Soma do saldo devedor atual de todos os cartões de crédito, dividido pela soma dos limites totais.')}</div>
-      <div class="font-mono font-bold text-2xl ${pctLimite>85?'text-warn':''}">${fmt(totalUsadoCartao)} <span class="text-sm text-dim">(${pctLimite.toFixed(0)}%)</span></div>
-      <div class="text-xs text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
+      <div class="eyebrow text-dim mb-3"><span class="ic" data-lucide="credit-card"></span>CARTÃO USADO ${infoBtn('Soma do saldo devedor atual de todos os cartões de crédito, dividido pela soma dos limites totais.')}</div>
+      <div class="font-mono font-bold num-lg ${pctLimite>85?'text-warn':''}">${fmt(totalUsadoCartao)} <span class="text-sm text-dim">(${pctLimite.toFixed(0)}%)</span></div>
+      <div class="num-support text-dim mt-3 font-mono flex items-center flex-wrap gap-x-1">${avatar('Diogo','bg-diogo')}${totalLimiteFmtPct(porPessoaCartao.you)} &nbsp; ${avatar('Tiago','bg-tiago')}${totalLimiteFmtPct(porPessoaCartao.partner)}</div>
     </div>
   `;
 
@@ -611,7 +675,7 @@ function renderInsight(summary, gastoDiogo, gastoTiago, pctLimite){
   const monthName = new Date().toLocaleDateString('pt-BR',{month:'long'});
   const parts = [];
   if (top) parts.push(`Maior gasto de ${monthName}: <b>${top.category}</b> (${fmt(top.total)})`);
-  if (pctLimite >= 85) parts.push(`<span class="text-warn">⚠ cartão perto do limite</span>`);
+  if (pctLimite >= 85) parts.push(`<span class="text-warn inline-flex items-center gap-1"><span class="icn" data-lucide="triangle-alert"></span>cartão perto do limite</span>`);
   const diff = gastoDiogo - gastoTiago;
   if (Math.abs(diff) > 1) {
     const maisGastou = diff > 0 ? 'Diogo' : 'Tiago';
@@ -648,9 +712,9 @@ function renderRitmo(summary, gastoMes){
   `;
 }
 
-function renderBarList(containerId, rows, emptyMsg){
+function renderBarList(containerId, rows, emptyMsg, emptyIcon){
   const el = document.getElementById(containerId);
-  if (!rows.length){ el.innerHTML = `<div class="text-dim text-xs py-3">${emptyMsg}</div>`; return; }
+  if (!rows.length){ el.innerHTML = emptyState(emptyIcon||'inbox', emptyMsg); refreshIcons(); return; }
   const max = Math.max(...rows.map(r=>r.total));
   el.innerHTML = rows.map(r=>{
     const pct = max ? Math.max(4, (r.total/max*100)) : 0;
@@ -869,7 +933,7 @@ async function loadTransactions(){
   const person = document.getElementById('fPerson').value;
   const category = document.getElementById('fCategory').value;
   const { from, to } = getDateRange();
-  if (!from || !to) { document.getElementById('txTableWrap').innerHTML = '<div class="text-dim text-sm py-8 text-center">Escolha as duas datas.</div>'; return; }
+  if (!from || !to) { document.getElementById('txTableWrap').innerHTML = emptyState('calendar', 'Escolha as duas datas.'); refreshIcons(); return; }
 
   let path = `/api/transactions?from=${from}&to=${to}&`;
   if(person) path += `person=${person}&`;
@@ -884,7 +948,7 @@ async function loadTransactions(){
   const realCategories = [...new Set(txs.map(t=>t.category).filter(Boolean))];
   const allKnownCategories = [...new Set([...CATEGORIES, ...realCategories, ...allCategoriesSeen])];
 
-  if(!txs.length){ document.getElementById('txTableWrap').innerHTML = '<div class="text-dim text-sm py-8 text-center">Nenhum lançamento nesse período.</div>'; return; }
+  if(!txs.length){ document.getElementById('txTableWrap').innerHTML = emptyState('inbox', 'Nenhum lançamento nesse período.'); refreshIcons(); return; }
 
   const porDia = {};
   txs.forEach(t=>{
@@ -903,7 +967,7 @@ async function loadTransactions(){
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium truncate">${t.description}</div>
           <div class="text-xs text-dim mt-0.5 flex items-center gap-1.5">${t.person_id==='you'?'Diogo':'Tiago'} ·
-            <select class="tag-select bg-soft border border-rule rounded-full px-2 py-0.5 text-[10px]" data-id="${t.id}">
+            <select class="tag-select select-custom rounded-full px-2 py-0.5 text-[10px]" data-id="${t.id}">
               ${allKnownCategories.map(c=>`<option value="${c}" ${c===t.category?'selected':''}>${c}</option>`).join('')}
             </select>
           </div>
@@ -931,6 +995,13 @@ async function loadTransactions(){
 
 ['fPerson','fCategory'].forEach(id=>document.getElementById(id).addEventListener('change', loadTransactions));
 
+document.getElementById('cards').innerHTML = `
+  <div class="card p-5 shadow-card"><div class="skel h-3 w-24 mb-4 rounded"></div><div class="skel h-7 w-32 mb-4 rounded"></div><div class="skel h-3 w-40 rounded"></div></div>
+  <div class="card p-5 shadow-card"><div class="skel h-3 w-24 mb-4 rounded"></div><div class="skel h-7 w-32 mb-4 rounded"></div><div class="skel h-3 w-40 rounded"></div></div>
+  <div class="card p-5 shadow-card"><div class="skel h-3 w-24 mb-4 rounded"></div><div class="skel h-7 w-32 mb-4 rounded"></div><div class="skel h-3 w-40 rounded"></div></div>
+`;
+
+refreshIcons();
 updateMonthLabel();
 loadAll();
 </script>
