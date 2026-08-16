@@ -6,6 +6,9 @@
     "deploy": "wrangler deploy",
     "db:migrate": "wrangler d1 execute financas-db --file=../schema.sql --remote"
   },
+  "dependencies": {
+    "@pushforge/builder": "^2.0.5"
+  },
   "devDependencies": {
     "wrangler": "^3.90.0"
   }
