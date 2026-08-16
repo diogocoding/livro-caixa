@@ -1,0 +1,1 @@
+INSERT OR IGNORE INTO categories (name, type, color) VALUES ('Financiamento', 'fixa', '#B8860B');

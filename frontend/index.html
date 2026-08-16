@@ -144,7 +144,7 @@
   <div class="grid-2">
     <div class="panel">
       <h2>Gasto por categoria</h2>
-      <div class="panel-sub">Mês atual · Diogo + Tiago</div>
+      <div class="panel-sub">Mês atual · <span style="color:#7FA98E">● Diogo</span> &nbsp;<span style="color:#D4A24C">● Tiago</span></div>
       <div class="barlist" id="catBars"></div>
     </div>
     <div class="panel">
@@ -154,10 +154,17 @@
     </div>
   </div>
 
-  <div class="panel" id="loansPanel" style="display:none;">
-    <h2>Empréstimos</h2>
-    <div class="panel-sub">Saldo devedor de contratos de empréstimo (fora do cartão)</div>
-    <div class="barlist" id="loansBars"></div>
+  <div class="grid-2">
+    <div class="panel">
+      <h2>Fixo vs variável</h2>
+      <div class="panel-sub">Quanto do gasto do mês é conta recorrente vs dia a dia</div>
+      <div class="barlist" id="fixedVarBars"></div>
+    </div>
+    <div class="panel" id="loansPanel" style="display:none;">
+      <h2>Empréstimos</h2>
+      <div class="panel-sub">Saldo devedor de contratos de empréstimo (fora do cartão)</div>
+      <div class="barlist" id="loansBars"></div>
+    </div>
   </div>
 
   <div class="panel">
@@ -195,8 +202,8 @@
 </div>
 
 <script>
-const CATEGORIES = ['Moradia','Mercado','Alimentação','Transporte','Contas de casa','Assinaturas','Cartão / Dívida','Saúde','Lazer','Transferências','Outros'];
-const CAT_COLORS = {'Moradia':'#5B8C7B','Mercado':'#D4A24C','Alimentação':'#E0B84C','Transporte':'#7B92C9','Contas de casa':'#C97B5F','Assinaturas':'#9B7BC9','Cartão / Dívida':'#C95F5F','Saúde':'#5FA8A0','Lazer':'#D48CB8','Transferências':'#6FA8DC','Outros':'#8A8F99'};
+const CATEGORIES = ['Moradia','Mercado','Alimentação','Transporte','Contas de casa','Assinaturas','Cartão / Dívida','Financiamento','Saúde','Lazer','Transferências','Outros'];
+const CAT_COLORS = {'Moradia':'#5B8C7B','Mercado':'#D4A24C','Alimentação':'#E0B84C','Transporte':'#7B92C9','Contas de casa':'#C97B5F','Assinaturas':'#9B7BC9','Cartão / Dívida':'#C95F5F','Financiamento':'#B8860B','Saúde':'#5FA8A0','Lazer':'#D48CB8','Transferências':'#6FA8DC','Outros':'#8A8F99'};
 
 // gera uma cor determinística pra qualquer categoria que não esteja no mapa conhecido
 function colorFor(cat){
@@ -219,7 +226,15 @@ function infoBtn(text){
 }
 function toggleInfo(id){
   document.querySelectorAll('.info-pop').forEach(el=>{ if(el.id!==id) el.classList.remove('show'); });
-  document.getElementById(id).classList.toggle('show');
+  const pop = document.getElementById(id);
+  pop.classList.toggle('show');
+  if (pop.classList.contains('show')) {
+    // se o popup for estourar a borda direita da tela, alinha pela direita em vez da esquerda
+    pop.style.left = ''; pop.style.right = '';
+    const rect = pop.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 12) pop.style.right = '0';
+    else pop.style.left = '0';
+  }
 }
 document.addEventListener('click', ()=>document.querySelectorAll('.info-pop').forEach(el=>el.classList.remove('show')));
 
@@ -273,7 +288,8 @@ async function loadAll(){
     const [summary, accounts, loans] = await Promise.all([api('/api/summary'), api('/api/accounts'), api('/api/loans').catch(()=>[])]);
     renderCards(summary, accounts);
     renderMonthChart(summary.byMonth);
-    renderCategoryBars(summary.byCategory);
+    renderCategoryBarsSplit(summary.byCategoryPerson);
+    renderFixedVariable(summary.byFixedVariable || []);
     renderUpcomingBars(summary.upcoming || []);
     renderLoans(loans);
     updateMonthLabel();
@@ -426,7 +442,7 @@ function renderInsight(summary, gastoDiogo, gastoTiago, pctLimite){
   document.getElementById('insight').innerHTML = parts.join(' &nbsp;·&nbsp; ') || 'Sem dados suficientes ainda.';
 }
 
-// Lista de barras horizontais — usado tanto pra "gasto por categoria" quanto "parcelas futuras"
+// Lista de barras horizontais SIMPLES — usado pra "parcelas futuras" e "empréstimos"
 function renderBarList(containerId, rows, emptyMsg){
   const el = document.getElementById(containerId);
   if (!rows.length){ el.innerHTML = `<div class="empty-small">${emptyMsg}</div>`; return; }
@@ -442,9 +458,59 @@ function renderBarList(containerId, rows, emptyMsg){
   }).join('');
 }
 
+// Barras de categoria DIVIDIDAS por pessoa (Diogo/Tiago empilhados na mesma barra)
+function renderCategoryBarsSplit(byCategoryPerson){
+  const el = document.getElementById('catBars');
+  const byCat = {};
+  (byCategoryPerson||[]).forEach(r=>{
+    if (!byCat[r.category]) byCat[r.category] = { you: 0, partner: 0 };
+    byCat[r.category][r.person_id] = r.total;
+  });
+  const rows = Object.entries(byCat).map(([cat, v])=>({ category: cat, you: v.you||0, partner: v.partner||0, total: (v.you||0)+(v.partner||0) }))
+    .sort((a,b)=>b.total-a.total);
+
+  if (!rows.length){ el.innerHTML = '<div class="empty-small">Nenhum gasto este mês ainda.</div>'; return; }
+  const max = Math.max(...rows.map(r=>r.total));
+
+  el.innerHTML = rows.map(r=>{
+    const pctYou = max ? (r.you/max*100) : 0;
+    const pctPartner = max ? (r.partner/max*100) : 0;
+    return `
+      <div class="barrow">
+        <div class="barrow-top"><span class="cat">${r.category}</span><span class="val">${fmt(r.total)}</span></div>
+        <div class="bartrack" style="display:flex;">
+          <div class="barfill" style="width:${pctYou}%;background:#7FA98E;border-radius:4px 0 0 4px;"></div>
+          <div class="barfill" style="width:${pctPartner}%;background:#D4A24C;border-radius:0 4px 4px 0;"></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function renderFixedVariable(rows){
+  const el = document.getElementById('fixedVarBars');
+  if (!el) return;
+  const fixo = rows.find(r=>r.tipo==='fixa')?.total || 0;
+  const variavel = rows.find(r=>r.tipo==='variavel')?.total || 0;
+  const total = fixo + variavel;
+  if (!total){ el.innerHTML = '<div class="empty-small">Sem dados ainda.</div>'; return; }
+  const pctFixo = (fixo/total*100).toFixed(0);
+  const pctVar = (variavel/total*100).toFixed(0);
+  el.innerHTML = `
+    <div class="barrow">
+      <div class="barrow-top"><span class="cat">Fixo (contas recorrentes)</span><span class="val">${fmt(fixo)} (${pctFixo}%)</span></div>
+      <div class="bartrack"><div class="barfill" style="width:${pctFixo}%;background:#7B92C9"></div></div>
+    </div>
+    <div class="barrow">
+      <div class="barrow-top"><span class="cat">Variável (dia a dia)</span><span class="val">${fmt(variavel)} (${pctVar}%)</span></div>
+      <div class="bartrack"><div class="barfill" style="width:${pctVar}%;background:#D48CB8"></div></div>
+    </div>
+  `;
+}
+
 function renderCategoryBars(rows){
   renderBarList('catBars', [...rows].sort((a,b)=>b.total-a.total), 'Nenhum gasto este mês ainda.');
 }
+// mantido apenas por compatibilidade — a versão em uso é renderCategoryBarsSplit
 
 function renderUpcomingBars(rows){
   const filtered = rows.filter(r=>r.total > 0).sort((a,b)=>b.total-a.total);
@@ -509,7 +575,9 @@ async function loadTransactions(){
 
   if(!txs.length){ document.getElementById('txTableWrap').innerHTML = '<div class="empty">Nenhum lançamento neste mês.</div>'; return; }
 
-  const rows = txs.map(t=>`
+  const rows = txs.map(t=>{
+    const isExpense = t.account_type === 'CREDIT' ? t.amount > 0 : t.amount < 0;
+    return `
     <tr>
       <td>${new Date(t.date).toLocaleDateString('pt-BR')}</td>
       <td class="desc">${t.description}</td>
@@ -519,9 +587,9 @@ async function loadTransactions(){
           ${allKnownCategories.map(c=>`<option value="${c}" ${c===t.category?'selected':''}>${c}</option>`).join('')}
         </select>
       </td>
-      <td class="amount" style="color:${t.amount>0?'#D97B66':'#7FA98E'}">${fmt(t.amount)}</td>
+      <td class="amount" style="color:${isExpense?'#D97B66':'#7FA98E'}">${fmt(Math.abs(t.amount))}</td>
     </tr>
-  `).join('');
+  `;}).join('');
 
   document.getElementById('txTableWrap').innerHTML = `
     <table>

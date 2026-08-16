@@ -249,8 +249,12 @@ async function syncOnePage(env, apiKey, accountId) {
 // calibrado com os extratos reais de vocês — ajustem/adicionem regras conforme surgirem nomes novos)
 function mapMerchantToCategory(tx) {
   const d = (tx.description || '').toLowerCase();
+  const pluggyCat = (tx.category || '').toLowerCase();
 
   const rules = [
+    // --- Financiamento/Crediário (parcelamento de loja, diferente do "Cartão / Dívida" que é rotativo/juros) ---
+    [/parc0\d\/0\d|crediario|financ/, 'Financiamento'],
+
     // --- Cartão / Dívida (renegociação, juros, encargos, pagamento de fatura de outro cartão) ---
     [/renegocia|pendenc|rotativo|encargo|juros|iof\b/, 'Cartão / Dívida'],
 
@@ -293,6 +297,10 @@ function mapMerchantToCategory(tx) {
   ];
 
   for (const [re, cat] of rules) if (re.test(d)) return cat;
+
+  // Se nenhuma regra específica bateu, usa a dica da própria Pluggy como último recurso
+  if (/loan|financing/.test(pluggyCat)) return 'Financiamento';
+
   return 'Outros';
 }
 
@@ -317,7 +325,7 @@ async function handleTransactions(req, env) {
   const category = url.searchParams.get('category');
   const person = url.searchParams.get('person');
 
-  let query = `SELECT t.*, a.person_id, a.name as account_name
+  let query = `SELECT t.*, a.person_id, a.name as account_name, a.type as account_type
                FROM transactions t JOIN accounts a ON a.id = t.account_id WHERE 1=1`;
   const binds = [];
   if (from) { query += ` AND t.date >= ?`; binds.push(from); }
@@ -334,40 +342,58 @@ async function handleSummary(req, env) {
   const url = new URL(req.url);
   const months = Number(url.searchParams.get('months') || 6);
 
+  // A Pluggy usa sinais opostos dependendo do tipo de conta:
+  // CARTÃO DE CRÉDITO: positivo = gasto (compra), negativo = pagamento/estorno.
+  // CONTA CORRENTE: negativo = gasto (saída), positivo = entrada (PIX recebido, salário).
+  // Essa expressão SQL calcula o "gasto de verdade" considerando os dois casos.
+  const GASTO_EXPR = `CASE
+    WHEN a.type = 'CREDIT' THEN (CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END)
+    ELSE (CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END)
+  END`;
+
   const byCategory = await env.DB.prepare(
-    `SELECT category, SUM(amount) as total, COUNT(*) as n
-     FROM transactions
-     WHERE date >= date('now', '-1 months', 'start of month') AND amount > 0
-     GROUP BY category ORDER BY total DESC`
+    `SELECT t.category as category, SUM(${GASTO_EXPR}) as total, COUNT(*) as n
+     FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.date >= date('now', 'start of month')
+     GROUP BY t.category HAVING total > 0 ORDER BY total DESC`
   ).all();
 
   const byMonth = await env.DB.prepare(
-    `SELECT strftime('%Y-%m', date) as month, a.person_id,
-            SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as gastos
+    `SELECT strftime('%Y-%m', t.date) as month, a.person_id,
+            SUM(${GASTO_EXPR}) as gastos
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE date >= date('now', '-${months} months')
+     WHERE t.date >= date('now', '-${months} months')
      GROUP BY month, a.person_id ORDER BY month ASC`
   ).all();
 
   const byPerson = await env.DB.prepare(
-    `SELECT a.person_id, SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END) as total
+    `SELECT a.person_id, SUM(${GASTO_EXPR}) as total
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE date >= date('now', 'start of month')
+     WHERE t.date >= date('now', 'start of month')
      GROUP BY a.person_id`
   ).all();
 
   // Categoria por pessoa (pra saber onde cada um gasta mais, não só quanto)
   const byCategoryPerson = await env.DB.prepare(
-    `SELECT a.person_id, t.category, SUM(t.amount) as total
+    `SELECT a.person_id, t.category, SUM(${GASTO_EXPR}) as total
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE date >= date('now', 'start of month') AND t.amount > 0
-     GROUP BY a.person_id, t.category ORDER BY total DESC`
+     WHERE t.date >= date('now', 'start of month')
+     GROUP BY a.person_id, t.category HAVING total > 0 ORDER BY total DESC`
+  ).all();
+
+  // Gasto fixo vs variável (usa o campo "type" já cadastrado na tabela categories)
+  const byFixedVariable = await env.DB.prepare(
+    `SELECT COALESCE(c.type, 'variavel') as tipo, SUM(${GASTO_EXPR}) as total
+     FROM transactions t
+     JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN categories c ON c.name = t.category
+     WHERE t.date >= date('now', 'start of month')
+     GROUP BY tipo`
   ).all();
 
   const accounts = await env.DB.prepare(`SELECT * FROM accounts`).all();
 
-  // Parcelas em aberto: soma do que ainda falta pagar de compras parceladas
-  // (assume valor igual por parcela, que é como a maioria dos cartões brasileiros funciona)
+  // Parcelas em aberto: só existe em cartão de crédito (é onde tem creditCardMetadata)
   const upcoming = await env.DB.prepare(
     `SELECT category, SUM(amount * (total_installments - installment_number)) as total
      FROM transactions
@@ -378,9 +404,9 @@ async function handleSummary(req, env) {
 
   // Comparação com o mês anterior (mesma métrica, mês -1)
   const byMonthTotal = await env.DB.prepare(
-    `SELECT strftime('%Y-%m', date) as month, SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END) as total
-     FROM transactions
-     WHERE date >= date('now', '-2 months', 'start of month')
+    `SELECT strftime('%Y-%m', t.date) as month, SUM(${GASTO_EXPR}) as total
+     FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.date >= date('now', '-2 months', 'start of month')
      GROUP BY month ORDER BY month ASC`
   ).all();
 
@@ -390,6 +416,7 @@ async function handleSummary(req, env) {
     byMonthTotal: byMonthTotal.results,
     byPerson: byPerson.results,
     byCategoryPerson: byCategoryPerson.results,
+    byFixedVariable: byFixedVariable.results,
     accounts: accounts.results,
     upcoming: upcoming.results,
   });
@@ -400,6 +427,24 @@ async function handleLoans(env) {
     `SELECT * FROM loans ORDER BY outstanding_balance DESC`
   ).all();
   return json(results);
+}
+
+// Endpoint de diagnóstico: chama a Pluggy AO VIVO (não usa o banco) pra ver a resposta
+// crua do endpoint de empréstimos — útil pra saber se "vazio" é falta de empréstimo
+// mesmo, ou se é a Pluggy recusando o produto pra essas contas.
+async function handleDebugLoans(env) {
+  const apiKey = await getPluggyApiKey(env);
+  const itemMap = getItemMap(env);
+  const debug = [];
+  for (const { itemId, personId } of itemMap) {
+    try {
+      const resp = await pluggyFetch(env, `/loans?itemId=${itemId}`, apiKey);
+      debug.push({ itemId, personId, ok: true, resultados: resp.results?.length ?? 0, raw: resp });
+    } catch (e) {
+      debug.push({ itemId, personId, ok: false, erro: String(e.message || e) });
+    }
+  }
+  return json(debug);
 }
 
 async function handleUpdateCategory(req, env, id) {
@@ -417,6 +462,7 @@ async function handleRecategorize(env) {
   const result = await env.DB.prepare(`
     UPDATE transactions
     SET category = CASE
+      WHEN LOWER(description) LIKE '%parc0%/0%' OR LOWER(description) LIKE '%crediario%' OR LOWER(description) LIKE '%financ%' THEN 'Financiamento'
       WHEN LOWER(description) LIKE '%renegocia%' OR LOWER(description) LIKE '%pendenc%' OR LOWER(description) LIKE '%rotativo%' OR LOWER(description) LIKE '%encargo%' OR LOWER(description) LIKE '%juros%' OR LOWER(description) LIKE '%iof%' THEN 'Cartão / Dívida'
       WHEN LOWER(description) LIKE '%luz%' OR LOWER(description) LIKE '%energia%' OR LOWER(description) LIKE '%enel%' OR LOWER(description) LIKE '%cemig%' OR LOWER(description) LIKE '%cpfl%' OR LOWER(description) LIKE '%celpe%' THEN 'Contas de casa'
       WHEN LOWER(description) LIKE '%agua%' OR LOWER(description) LIKE '%saneago%' OR LOWER(description) LIKE '%sabesp%' OR LOWER(description) LIKE '%compesa%' THEN 'Contas de casa'
@@ -465,6 +511,7 @@ export default {
       if (path === '/api/sync') return json({ synced: await syncAll(env) });
       if (path === '/api/recategorize') return await handleRecategorize(env);
       if (path === '/api/loans') return await handleLoans(env);
+      if (path === '/api/debug-loans') return await handleDebugLoans(env);
       if (path === '/api/transactions') return await handleTransactions(req, env);
       if (path === '/api/summary') return await handleSummary(req, env);
       if (path === '/api/accounts') {
