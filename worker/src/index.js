@@ -84,6 +84,17 @@ async function syncAll(env) {
         acc.creditData?.creditLimit ?? null
       ).run();
       allAccountIds.push(acc.id);
+
+      // Grava 1 snapshot de saldo por dia (não a cada sync) — usado no gráfico de evolução da dívida
+      const today = new Date().toISOString().slice(0, 10);
+      const already = await env.DB.prepare(
+        `SELECT id FROM balance_history WHERE account_id = ?1 AND date(recorded_at) = ?2 LIMIT 1`
+      ).bind(acc.id, today).first();
+      if (!already) {
+        await env.DB.prepare(
+          `INSERT INTO balance_history (account_id, balance) VALUES (?1, ?2)`
+        ).bind(acc.id, acc.balance ?? null).run();
+      }
     }
 
     // Empréstimos são um produto separado do cartão/conta — nem todo banco expõe isso,
@@ -252,6 +263,9 @@ function mapMerchantToCategory(tx) {
   const pluggyCat = (tx.category || '').toLowerCase();
 
   const rules = [
+    // --- Investimentos (não é gasto — é dinheiro migrando pra aplicação, volta depois) ---
+    [/aplicac?[aã]o rdb|resgate rdb|\bcdb\b|tesouro direto|\blci\b|\blca\b|fundo de investimento/, 'Investimentos'],
+
     // --- Financiamento/Crediário (parcelamento de loja, diferente do "Cartão / Dívida" que é rotativo/juros) ---
     [/parc0\d\/0\d|crediario|financ/, 'Financiamento'],
 
@@ -351,10 +365,15 @@ async function handleSummary(req, env) {
     ELSE (CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END)
   END`;
 
+  // Transferências e Investimentos não são "gasto" de verdade (é dinheiro migrando de conta
+  // ou indo pra aplicação, não saindo do patrimônio do casal) — por isso ficam de fora do
+  // total de "gasto no mês", mas continuam visíveis nos lançamentos crus se quiserem conferir.
+  const NAO_E_GASTO = `('Transferências', 'Investimentos')`;
+
   const byCategory = await env.DB.prepare(
     `SELECT t.category as category, SUM(${GASTO_EXPR}) as total, COUNT(*) as n
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE t.date >= date('now', 'start of month')
+     WHERE t.date >= date('now', 'start of month') AND t.category NOT IN ${NAO_E_GASTO}
      GROUP BY t.category HAVING total > 0 ORDER BY total DESC`
   ).all();
 
@@ -362,14 +381,14 @@ async function handleSummary(req, env) {
     `SELECT strftime('%Y-%m', t.date) as month, a.person_id,
             SUM(${GASTO_EXPR}) as gastos
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE t.date >= date('now', '-${months} months')
+     WHERE t.date >= date('now', '-${months} months') AND t.category NOT IN ${NAO_E_GASTO}
      GROUP BY month, a.person_id ORDER BY month ASC`
   ).all();
 
   const byPerson = await env.DB.prepare(
     `SELECT a.person_id, SUM(${GASTO_EXPR}) as total
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE t.date >= date('now', 'start of month')
+     WHERE t.date >= date('now', 'start of month') AND t.category NOT IN ${NAO_E_GASTO}
      GROUP BY a.person_id`
   ).all();
 
@@ -377,8 +396,16 @@ async function handleSummary(req, env) {
   const byCategoryPerson = await env.DB.prepare(
     `SELECT a.person_id, t.category, SUM(${GASTO_EXPR}) as total
      FROM transactions t JOIN accounts a ON a.id = t.account_id
-     WHERE t.date >= date('now', 'start of month')
+     WHERE t.date >= date('now', 'start of month') AND t.category NOT IN ${NAO_E_GASTO}
      GROUP BY a.person_id, t.category HAVING total > 0 ORDER BY total DESC`
+  ).all();
+
+  // Transferências/Investimentos separados, só informativo (não entra no "gasto")
+  const movimentacoes = await env.DB.prepare(
+    `SELECT t.category, SUM(${GASTO_EXPR}) as total
+     FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.date >= date('now', 'start of month') AND t.category IN ${NAO_E_GASTO}
+     GROUP BY t.category HAVING total > 0`
   ).all();
 
   // Gasto fixo vs variável (usa o campo "type" já cadastrado na tabela categories)
@@ -387,7 +414,7 @@ async function handleSummary(req, env) {
      FROM transactions t
      JOIN accounts a ON a.id = t.account_id
      LEFT JOIN categories c ON c.name = t.category
-     WHERE t.date >= date('now', 'start of month')
+     WHERE t.date >= date('now', 'start of month') AND t.category NOT IN ${NAO_E_GASTO}
      GROUP BY tipo`
   ).all();
 
@@ -417,9 +444,20 @@ async function handleSummary(req, env) {
     byPerson: byPerson.results,
     byCategoryPerson: byCategoryPerson.results,
     byFixedVariable: byFixedVariable.results,
+    movimentacoes: movimentacoes.results,
     accounts: accounts.results,
     upcoming: upcoming.results,
   });
+}
+
+async function handleDebtHistory(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT date(bh.recorded_at) as day, a.person_id, SUM(bh.balance) as total
+     FROM balance_history bh JOIN accounts a ON a.id = bh.account_id
+     WHERE a.type = 'CREDIT'
+     GROUP BY day, a.person_id ORDER BY day ASC`
+  ).all();
+  return json(results);
 }
 
 async function handleLoans(env) {
@@ -462,6 +500,7 @@ async function handleRecategorize(env) {
   const result = await env.DB.prepare(`
     UPDATE transactions
     SET category = CASE
+      WHEN LOWER(description) LIKE '%aplicacao rdb%' OR LOWER(description) LIKE '%aplicação rdb%' OR LOWER(description) LIKE '%resgate rdb%' OR LOWER(description) LIKE '%cdb%' OR LOWER(description) LIKE '%tesouro direto%' THEN 'Investimentos'
       WHEN LOWER(description) LIKE '%parc0%/0%' OR LOWER(description) LIKE '%crediario%' OR LOWER(description) LIKE '%financ%' THEN 'Financiamento'
       WHEN LOWER(description) LIKE '%renegocia%' OR LOWER(description) LIKE '%pendenc%' OR LOWER(description) LIKE '%rotativo%' OR LOWER(description) LIKE '%encargo%' OR LOWER(description) LIKE '%juros%' OR LOWER(description) LIKE '%iof%' THEN 'Cartão / Dívida'
       WHEN LOWER(description) LIKE '%luz%' OR LOWER(description) LIKE '%energia%' OR LOWER(description) LIKE '%enel%' OR LOWER(description) LIKE '%cemig%' OR LOWER(description) LIKE '%cpfl%' OR LOWER(description) LIKE '%celpe%' THEN 'Contas de casa'
@@ -512,6 +551,7 @@ export default {
       if (path === '/api/recategorize') return await handleRecategorize(env);
       if (path === '/api/loans') return await handleLoans(env);
       if (path === '/api/debug-loans') return await handleDebugLoans(env);
+      if (path === '/api/debt-history') return await handleDebtHistory(env);
       if (path === '/api/transactions') return await handleTransactions(req, env);
       if (path === '/api/summary') return await handleSummary(req, env);
       if (path === '/api/accounts') {
