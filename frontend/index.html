@@ -4,6 +4,10 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Livro-Caixa</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#141A21">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
@@ -137,10 +141,13 @@
       </div>
     </div>
     <div class="flex gap-2 items-center">
+      <button id="pushBtn" title="Ativar notificações" class="card card-hover w-9 h-9 flex items-center justify-center text-sm shadow-card"><span class="icn" data-lucide="bell"></span></button>
       <button id="themeBtn" title="Alternar tema" class="card card-hover w-9 h-9 flex items-center justify-center text-sm shadow-card"><span class="icn" data-lucide="moon"></span></button>
       <button id="syncBtn" class="bg-ink text-white rounded-xl px-4 py-2.5 text-xs font-semibold shadow-card hover:opacity-90 flex items-center gap-1.5"><span class="icn" data-lucide="refresh-cw"></span>Sincronizar</button>
     </div>
   </header>
+
+  <div id="dueAlert" class="hidden card px-4 py-3 mb-4 shadow-card border-l-4" style="border-left-color:#B5493C"></div>
 
   <nav class="flex gap-1 bg-soft border border-rule rounded-2xl p-1.5 mb-6 overflow-x-auto">
     <button class="tab-btn flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold whitespace-nowrap text-dim hover:text-ink transition-colors" data-tab="geral">Visão Geral</button>
@@ -156,6 +163,7 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4" id="compare"></div>
     <div class="card px-5 py-4 mb-3 text-sm shadow-card" id="insight"></div>
     <div class="card px-5 py-4 mb-3 text-sm shadow-card" id="ritmo"></div>
+    <div class="card px-5 py-4 mb-4 shadow-card" id="previsao"></div>
     <div class="card px-5 py-4 mb-5 text-xs text-dim shadow-card" id="movimentacoes"></div>
 
     <div class="card p-6 shadow-card">
@@ -171,6 +179,11 @@
         <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="folder-open"></span>Gasto por categoria</h2>
         <div class="text-dim text-xs mb-4">Mês atual · <span class="text-diogo font-semibold">● Diogo</span> &nbsp;<span class="text-tiago font-semibold">● Tiago</span></div>
         <div class="flex flex-col gap-3" id="catBars"></div>
+      </div>
+      <div class="card p-6 shadow-card">
+        <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="target"></span>Metas de gasto</h2>
+        <div class="text-dim text-xs mb-4">Defina um teto mensal por categoria; avisamos por notificação se estourar</div>
+        <div class="flex flex-col gap-3" id="goalsList"></div>
       </div>
       <div class="card p-6 shadow-card">
         <h2 class="font-display font-semibold text-base mb-1 flex items-center gap-2"><span class="icn" data-lucide="scale"></span>Fixo vs variável <span id="fvInfo"></span></h2>
@@ -370,6 +383,7 @@ let entradaSaidaFiltro = '';
 let billsPersonFiltro = '';
 let billsData = [];
 let billsAllData = [];
+let categoriesData = [];
 
 function api(path){
   return fetch(cfg.url + path, { headers: { Authorization: 'Bearer ' + cfg.secret } }).then(r=>{
@@ -395,12 +409,14 @@ async function loadAll(){
   }
   document.getElementById('statusLine').textContent = 'carregando…';
   try{
-    const [summary, accounts, loans, debtHistory, bills, billsAll] = await Promise.all([
+    const [summary, accounts, loans, debtHistory, bills, billsAll, categories] = await Promise.all([
       api('/api/summary'), api('/api/accounts'), api('/api/loans').catch(()=>[]),
-      api('/api/debt-history').catch(()=>[]), api('/api/bills').catch(()=>[]), api('/api/bills?all=1').catch(()=>[])
+      api('/api/debt-history').catch(()=>[]), api('/api/bills').catch(()=>[]), api('/api/bills?all=1').catch(()=>[]),
+      api('/api/categories').catch(()=>[])
     ]);
     billsData = bills || [];
     billsAllData = billsAll || [];
+    categoriesData = categories || [];
     renderCards(summary, accounts);
     renderCardsList(accounts);
     drawBillsList();
@@ -413,6 +429,9 @@ async function loadAll(){
     renderLoans(loans);
     renderDebtChart(debtHistory);
     renderMovimentacoes(summary.movimentacoes || []);
+    renderGoals(summary.byCategory || []);
+    renderPrevisao(summary, accounts);
+    renderDueAlert(billsAllData);
     updateMonthLabel();
 
     allCategoriesSeen = [...new Set([...CATEGORIES, ...summary.byCategory.map(r=>r.category).filter(Boolean)])];
@@ -524,6 +543,147 @@ function renderMovimentacoes(rows){
   const txt = rows.map(r=>`${r.category}: ${fmt(r.total)}`).join(' &nbsp;·&nbsp; ');
   el.innerHTML = `Movimentações fora do gasto (não contam como despesa): ${txt} ${infoBtn('Transferências entre contas e aplicações/resgates de investimento não são consideradas gasto — é dinheiro que continua sendo do casal, só mudou de lugar.')}`;
 }
+
+function renderGoals(byCategory){
+  const el = document.getElementById('goalsList');
+  const gastoPorCategoria = {};
+  byCategory.forEach(r=>{ gastoPorCategoria[r.category] = r.total; });
+
+  const comMeta = categoriesData.filter(c=>c.monthly_budget != null);
+  const semMeta = categoriesData.filter(c=>c.monthly_budget == null);
+
+  if (!categoriesData.length){ el.innerHTML = emptyState('target', 'Categorias ainda não carregaram.'); refreshIcons(); return; }
+
+  const linha = (c, editing)=>{
+    const gasto = gastoPorCategoria[c.name] || 0;
+    const meta = c.monthly_budget;
+    const pct = meta ? Math.min(100, (gasto/meta*100)) : 0;
+    const estourou = meta && gasto >= meta;
+    const cor = estourou ? '#B5493C' : (pct>=75 ? '#B8863B' : (c.color || '#2F6F5E'));
+    return `
+      <div>
+        <div class="flex justify-between items-center text-xs mb-1 gap-2">
+          <span class="font-medium truncate">${c.name}</span>
+          <span class="flex items-center gap-1.5 flex-shrink-0">
+            ${meta ? `<span class="font-mono ${estourou?'text-warn font-semibold':'text-dim'}">${fmt(gasto)} / ${fmt(meta)}</span>` : `<span class="font-mono text-dim">${fmt(gasto)}</span>`}
+            <input type="number" min="0" step="10" class="goal-input w-16 bg-soft border border-rule rounded-md px-1.5 py-0.5 text-[10px] font-mono" data-cat="${c.name}" placeholder="meta" value="${meta ?? ''}">
+          </span>
+        </div>
+        ${meta ? `<div class="h-1.5 bg-soft rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:${Math.max(pct,3)}%;background:${cor}"></div></div>` : ''}
+      </div>`;
+  };
+
+  el.innerHTML = [...comMeta, ...semMeta].map(c=>linha(c)).join('');
+
+  document.querySelectorAll('.goal-input').forEach(inp=>{
+    inp.onchange = async ()=>{
+      const val = inp.value === '' ? null : Number(inp.value);
+      try{
+        await fetch(cfg.url + '/api/categories/' + encodeURIComponent(inp.dataset.cat), {
+          method:'PATCH',
+          headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+cfg.secret },
+          body: JSON.stringify({ monthly_budget: val })
+        });
+        const c = categoriesData.find(x=>x.name===inp.dataset.cat);
+        if (c) c.monthly_budget = val;
+        renderGoals(byCategory);
+      }catch(e){}
+    };
+  });
+}
+
+function renderPrevisao(summary, accounts){
+  const el = document.getElementById('previsao');
+  const saldoAtual = accounts.filter(a=>a.type==='BANK').reduce((s,a)=>s+(a.balance||0),0);
+
+  const porMes = {};
+  (summary.byMonth||[]).forEach(r=>{ porMes[r.month] = (porMes[r.month]||0) + (r.gastos||0); });
+  const meses = Object.keys(porMes).sort().slice(-3);
+  if (!meses.length){ el.innerHTML = emptyState('trending-up', 'Ainda não há histórico suficiente pra projetar o saldo.'); refreshIcons(); return; }
+
+  const mediaMensal = meses.reduce((s,m)=>s+porMes[m],0) / meses.length;
+  const previsto = saldoAtual - mediaMensal;
+  const cor = previsto >= 0 ? 'text-ink' : 'text-warn';
+
+  el.innerHTML = `
+    <div class="eyebrow text-dim mb-3"><span class="ic" data-lucide="trending-up"></span>PREVISÃO DE SALDO (30 DIAS) ${infoBtn('Estimativa: saldo atual em conta menos a média de gasto real dos últimos ' + meses.length + ' meses. Não considera entradas futuras (salário, etc) — é só um sinal de alerta, não uma garantia.')}</div>
+    <div class="font-mono font-bold num-lg ${cor}">${fmt(previsto)}</div>
+    <div class="num-support text-dim mt-3">Saldo atual ${fmt(saldoAtual)} &nbsp;−&nbsp; média de gasto/mês ${fmt(mediaMensal)}</div>
+  `;
+  refreshIcons();
+}
+
+function renderDueAlert(bills){
+  const el = document.getElementById('dueAlert');
+  const hoje = new Date().toISOString().slice(0,10);
+  const limite = new Date(); limite.setDate(limite.getDate()+3);
+  const limiteStr = limite.toISOString().slice(0,10);
+  const proximas = (bills||[]).filter(b=>b.due_date && b.due_date.slice(0,10) >= hoje && b.due_date.slice(0,10) <= limiteStr);
+
+  if (!proximas.length){ el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const txt = proximas.map(b=>{
+    const pessoa = b.person_id==='you' ? 'Diogo' : 'Tiago';
+    const dias = Math.round((new Date(b.due_date) - new Date(hoje))/86400000);
+    const quando = dias<=0 ? 'vence hoje' : (dias===1 ? 'vence amanhã' : `vence em ${dias} dias`);
+    return `${b.account_name} (${pessoa}) ${quando} · ${fmt(b.total_amount)}`;
+  }).join(' &nbsp;·&nbsp; ');
+  el.innerHTML = `<div class="flex items-center gap-2 text-sm"><span class="icn text-warn" data-lucide="bell-ring"></span><span>${txt}</span></div>`;
+  refreshIcons();
+}
+
+// -------------------- PWA: instalação + notificações push --------------------
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', ()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+}
+
+function urlBase64ToUint8Array(base64String){
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g,'+').replace(/_/g,'/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c=>c.charCodeAt(0)));
+}
+
+async function updatePushBtn(){
+  const btn = document.getElementById('pushBtn');
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) { btn.classList.add('hidden'); return; }
+  const reg = await navigator.serviceWorker.ready.catch(()=>null);
+  const sub = reg ? await reg.pushManager.getSubscription().catch(()=>null) : null;
+  btn.querySelector('.icn').setAttribute('data-lucide', sub ? 'bell-ring' : 'bell');
+  btn.title = sub ? 'Desativar notificações' : 'Ativar notificações';
+  refreshIcons();
+}
+
+document.getElementById('pushBtn').onclick = async ()=>{
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  const reg = await navigator.serviceWorker.ready;
+  const existing = await reg.pushManager.getSubscription();
+
+  if (existing) {
+    await fetch(cfg.url + '/api/push/unsubscribe', {
+      method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+cfg.secret },
+      body: JSON.stringify({ endpoint: existing.endpoint })
+    }).catch(()=>{});
+    await existing.unsubscribe();
+    return updatePushBtn();
+  }
+
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') return;
+
+  try{
+    const { key } = await api('/api/push/vapid-public-key');
+    if (!key) { alert('Notificações ainda não configuradas no servidor (falta VAPID_PUBLIC_KEY).'); return; }
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(key) });
+    await fetch(cfg.url + '/api/push/subscribe', {
+      method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer '+cfg.secret },
+      body: JSON.stringify({ subscription: sub.toJSON() })
+    });
+  }catch(e){}
+  updatePushBtn();
+};
+updatePushBtn();
 
 function renderLoans(loans){
   const panel = document.getElementById('loansPanel');
