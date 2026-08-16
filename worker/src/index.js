@@ -85,6 +85,27 @@ async function syncAll(env) {
       ).run();
       allAccountIds.push(acc.id);
 
+      // Faturas (atuais e futuras) — só existe em cartão de crédito
+      if (acc.type === 'CREDIT') {
+        try {
+          const billsResp = await pluggyFetch(env, `/bills?accountId=${acc.id}`, apiKey);
+          for (const bill of billsResp.results || []) {
+            await env.DB.prepare(
+              `INSERT INTO bills (id, account_id, person_id, due_date, total_amount, minimum_payment, updated_at)
+               VALUES (?1, ?2, ?3, ?4, ?5, ?6, datetime('now'))
+               ON CONFLICT(id) DO UPDATE SET
+                 due_date=excluded.due_date, total_amount=excluded.total_amount,
+                 minimum_payment=excluded.minimum_payment, updated_at=datetime('now')`
+            ).bind(
+              bill.id, acc.id, personId, bill.dueDate,
+              bill.totalAmount ?? null, bill.minimumPaymentAmount ?? null
+            ).run();
+          }
+        } catch (e) {
+          // se o banco não expuser faturas futuras, segue o sync normalmente
+        }
+      }
+
       // Grava 1 snapshot de saldo por dia (não a cada sync) — usado no gráfico de evolução da dívida
       const today = new Date().toISOString().slice(0, 10);
       const already = await env.DB.prepare(
@@ -185,7 +206,7 @@ async function syncIncremental(env, apiKey, accountId, lastSyncedAt) {
   let count = 0;
   for (const tx of resp.results || []) {
     await stmt.bind(
-      tx.id, accountId, tx.date, tx.description, tx.amount,
+      tx.id, accountId, tx.date, tx.description, tx.amountInAccountCurrency ?? tx.amount,
       tx.currencyCode || 'BRL',
       mapMerchantToCategory(tx),
       tx.status,
@@ -233,7 +254,7 @@ async function syncOnePage(env, apiKey, accountId) {
   let count = 0;
   for (const tx of resp.results || []) {
     await stmt.bind(
-      tx.id, accountId, tx.date, tx.description, tx.amount,
+      tx.id, accountId, tx.date, tx.description, tx.amountInAccountCurrency ?? tx.amount,
       tx.currencyCode || 'BRL',
       mapMerchantToCategory(tx),
       tx.status,
@@ -312,7 +333,10 @@ function mapMerchantToCategory(tx) {
 
   for (const [re, cat] of rules) if (re.test(d)) return cat;
 
-  // Se nenhuma regra específica bateu, usa a dica da própria Pluggy como último recurso
+  // Se nenhuma regra específica bateu, usa dados estruturados como último recurso:
+  // qualquer compra parcelada (2x ou mais) que não caiu em nenhuma categoria específica
+  // provavelmente é financiamento de loja (mesmo sem o nome "PARC" na descrição).
+  if ((tx.creditCardMetadata?.totalInstallments ?? 0) > 1) return 'Financiamento';
   if (/loan|financing/.test(pluggyCat)) return 'Financiamento';
 
   return 'Outros';
@@ -441,6 +465,15 @@ async function handleSummary(req, env) {
      GROUP BY month ORDER BY month ASC`
   ).all();
 
+  // Gastos mais frequentes (recorrência no dia a dia, últimos 3 meses)
+  const frequentes = await env.DB.prepare(
+    `SELECT t.description, t.category, COUNT(*) as n, SUM(${GASTO_EXPR}) as total, AVG(${GASTO_EXPR}) as media
+     FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.category NOT IN ${NAO_E_GASTO} AND t.date >= date('now', '-3 months')
+     GROUP BY t.description HAVING n >= 2
+     ORDER BY n DESC, total DESC LIMIT 10`
+  ).all();
+
   return json({
     byCategory: byCategory.results,
     byMonth: byMonth.results,
@@ -449,9 +482,18 @@ async function handleSummary(req, env) {
     byCategoryPerson: byCategoryPerson.results,
     byFixedVariable: byFixedVariable.results,
     movimentacoes: movimentacoes.results,
+    frequentes: frequentes.results,
     accounts: accounts.results,
     upcoming: upcoming.results,
   });
+}
+
+async function handleBills(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT b.*, a.name as account_name FROM bills b JOIN accounts a ON a.id = b.account_id
+     ORDER BY b.due_date ASC`
+  ).all();
+  return json(results);
 }
 
 async function handleDebtHistory(env) {
@@ -469,6 +511,32 @@ async function handleLoans(env) {
     `SELECT * FROM loans ORDER BY outstanding_balance DESC`
   ).all();
   return json(results);
+}
+
+// Corrige transações em moeda estrangeira que já foram salvas com o valor errado
+// (em dólar em vez de real) antes da correção do amountInAccountCurrency.
+async function handleFixForeignCurrency(env) {
+  const apiKey = await getPluggyApiKey(env);
+  const { results: accounts } = await env.DB.prepare(`SELECT id FROM accounts`).all();
+  let corrigidas = 0;
+
+  for (const acc of accounts) {
+    const { results: txs } = await env.DB.prepare(
+      `SELECT id FROM transactions WHERE account_id = ?1 AND currency != 'BRL' AND category_override = 0`
+    ).bind(acc.id).all();
+
+    for (const tx of txs) {
+      try {
+        const resp = await pluggyFetch(env, `/transactions/${tx.id}`, apiKey);
+        const valorCerto = resp.amountInAccountCurrency ?? resp.amount;
+        await env.DB.prepare(`UPDATE transactions SET amount = ?1 WHERE id = ?2`).bind(valorCerto, tx.id).run();
+        corrigidas++;
+      } catch (e) {
+        // segue pra próxima se essa transação específica der erro
+      }
+    }
+  }
+  return json({ ok: true, transacoesCorrigidas: corrigidas });
 }
 
 // Endpoint de diagnóstico: chama a Pluggy AO VIVO (não usa o banco) pra ver a resposta
@@ -526,6 +594,7 @@ async function handleRecategorize(env) {
       WHEN LOWER(description) LIKE '%tiagorenan%' OR LOWER(description) LIKE '%tiago renan%' OR LOWER(description) LIKE '%sandravaleria%' OR LOWER(description) LIKE '%boa vista%' OR LOWER(description) LIKE '%alyson felipe%' OR LOWER(description) LIKE '%carlito mo%' THEN 'Transferências'
       WHEN LOWER(description) LIKE '%fatura%' THEN 'Cartão / Dívida'
       WHEN LOWER(description) LIKE '%pix%' OR LOWER(description) LIKE '%transfer%' OR LOWER(description) LIKE '%ted %' THEN 'Transferências'
+      WHEN total_installments IS NOT NULL AND total_installments > 1 THEN 'Financiamento'
       ELSE 'Outros'
     END
     WHERE category_override = 0
@@ -556,6 +625,8 @@ export default {
       if (path === '/api/loans') return await handleLoans(env);
       if (path === '/api/debug-loans') return await handleDebugLoans(env);
       if (path === '/api/debt-history') return await handleDebtHistory(env);
+      if (path === '/api/fix-foreign-currency') return await handleFixForeignCurrency(env);
+      if (path === '/api/bills') return await handleBills(env);
       if (path === '/api/transactions') return await handleTransactions(req, env);
       if (path === '/api/summary') return await handleSummary(req, env);
       if (path === '/api/accounts') {
