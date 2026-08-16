@@ -420,13 +420,17 @@ async function handleSummary(req, env) {
 
   const accounts = await env.DB.prepare(`SELECT * FROM accounts`).all();
 
-  // Parcelas em aberto: só existe em cartão de crédito (é onde tem creditCardMetadata)
+  // Parcelas em aberto: só existe em cartão de crédito (é onde tem creditCardMetadata).
+  // Vem com a divisão por pessoa e a contagem de compras/parcelas restantes, não só o valor.
   const upcoming = await env.DB.prepare(
-    `SELECT category, SUM(amount * (total_installments - installment_number)) as total
-     FROM transactions
+    `SELECT a.person_id, category,
+            SUM(amount * (total_installments - installment_number)) as total,
+            COUNT(*) as compras_ativas,
+            SUM(total_installments - installment_number) as parcelas_restantes
+     FROM transactions t JOIN accounts a ON a.id = t.account_id
      WHERE total_installments IS NOT NULL AND installment_number IS NOT NULL
        AND installment_number < total_installments AND amount > 0
-     GROUP BY category ORDER BY total DESC`
+     GROUP BY a.person_id, category ORDER BY total DESC`
   ).all();
 
   // Comparação com o mês anterior (mesma métrica, mês -1)

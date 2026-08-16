@@ -179,7 +179,7 @@
         <div class="barlist" id="catBars"></div>
       </div>
       <div class="panel">
-        <h2>Fixo vs variável</h2>
+        <h2>Fixo vs variável <span id="fvInfo"></span></h2>
         <div class="panel-sub">Quanto do gasto do mês é conta recorrente vs dia a dia</div>
         <div class="barlist" id="fixedVarBars"></div>
       </div>
@@ -460,19 +460,28 @@ function renderComparison(summary, gastoDiogo, gastoTiago){
   const catTiago = (summary.byCategoryPerson||[]).filter(r=>r.person_id==='partner').sort((a,b)=>b.total-a.total)[0];
 
   document.getElementById('compare').innerHTML = `
-    <div class="who">
+    <div class="who" style="cursor:pointer;" onclick="goToPersonTransactions('you')">
       <div class="name" style="color:#7FA98E">${avatar('Diogo','#7FA98E')} Diogo</div>
       <div class="total">${fmt(gastoDiogo)}</div>
       <div class="pct">${pctDiogo.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Diogo dividido pelo gasto real total dos dois no mês corrente.')}</div>
       <div class="top-cat">${catDiogo ? `Categoria onde mais gasta: <b>${catDiogo.category}</b> (${fmt(catDiogo.total)})` : 'Sem gastos categorizados ainda'}</div>
     </div>
-    <div class="who">
+    <div class="who" style="cursor:pointer;" onclick="goToPersonTransactions('partner')">
       <div class="name" style="color:#D4A24C">${avatar('Tiago','#D4A24C')} Tiago</div>
       <div class="total">${fmt(gastoTiago)}</div>
       <div class="pct">${pctTiago.toFixed(0)}% do gasto total do casal este mês ${infoBtn('Gasto real do Tiago dividido pelo gasto real total dos dois no mês corrente.')}</div>
       <div class="top-cat">${catTiago ? `Categoria onde mais gasta: <b>${catTiago.category}</b> (${fmt(catTiago.total)})` : 'Sem gastos categorizados ainda'}</div>
     </div>
   `;
+}
+
+function goToPersonTransactions(personId){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="transacoes"]').classList.add('active');
+  document.getElementById('tab-transacoes').classList.add('active');
+  document.getElementById('fPerson').value = personId;
+  loadTransactions();
 }
 
 function renderInsight(summary, gastoDiogo, gastoTiago, pctLimite){
@@ -549,7 +558,7 @@ function renderCategoryBarsSplit(byCategoryPerson){
     const pctYou = max ? (r.you/max*100) : 0;
     const pctPartner = max ? (r.partner/max*100) : 0;
     return `
-      <div class="barrow">
+      <div class="barrow" style="cursor:pointer;" onclick="goToCategoryTransactions('${r.category.replace(/'/g,"\\'")}')">
         <div class="barrow-top"><span class="cat">${r.category}</span><span class="val">${fmt(r.total)}</span></div>
         <div class="bartrack" style="display:flex;">
           <div class="barfill" style="width:${pctYou}%;background:#7FA98E;border-radius:4px 0 0 4px;"></div>
@@ -560,6 +569,7 @@ function renderCategoryBarsSplit(byCategoryPerson){
 }
 
 function renderFixedVariable(rows){
+  document.getElementById('fvInfo').innerHTML = infoBtn('"Fixo" são categorias que normalmente se repetem todo mês com valor parecido — Moradia, Contas de casa, Assinaturas, Cartão/Dívida, Financiamento. "Variável" é tudo que muda mês a mês — Mercado, Alimentação, Transporte, Lazer, Saúde, Outros. Isso ajuda a ver quanto do orçamento já está "comprometido" antes mesmo do mês começar.');
   const el = document.getElementById('fixedVarBars');
   const fixo = rows.find(r=>r.tipo==='fixa')?.total || 0;
   const variavel = rows.find(r=>r.tipo==='variavel')?.total || 0;
@@ -580,8 +590,44 @@ function renderFixedVariable(rows){
 }
 
 function renderUpcomingBars(rows){
-  const filtered = rows.filter(r=>r.total > 0).sort((a,b)=>b.total-a.total);
-  renderBarList('upcomingBars', filtered, 'Nenhuma parcela em aberto no momento.');
+  const el = document.getElementById('upcomingBars');
+  const byCat = {};
+  (rows||[]).forEach(r=>{
+    if (!byCat[r.category]) byCat[r.category] = { you: null, partner: null, total: 0 };
+    byCat[r.category][r.person_id] = r;
+    byCat[r.category].total += r.total;
+  });
+  const cats = Object.entries(byCat).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total);
+  if (!cats.length){ el.innerHTML = '<div class="empty-small">Nenhuma parcela em aberto no momento.</div>'; return; }
+  const max = Math.max(...cats.map(([,v])=>v.total));
+
+  el.innerHTML = cats.map(([cat, v])=>{
+    const pct = max ? Math.max(4, (v.total/max*100)) : 0;
+    const color = colorFor(cat);
+    const detalheDiogo = v.you ? `Diogo: ${fmt(v.you.total)} (${v.you.parcelas_restantes}x em ${v.you.compras_ativas} compra${v.you.compras_ativas>1?'s':''})` : '';
+    const detalheTiago = v.partner ? `Tiago: ${fmt(v.partner.total)} (${v.partner.parcelas_restantes}x em ${v.partner.compras_ativas} compra${v.partner.compras_ativas>1?'s':''})` : '';
+    return `
+      <div class="barrow" style="cursor:pointer;" onclick="goToCategoryTransactions('${cat.replace(/'/g,"\\'")}')">
+        <div class="barrow-top"><span class="cat">${cat}</span><span class="val">${fmt(v.total)}</span></div>
+        <div class="bartrack"><div class="barfill" style="width:${pct}%;background:${color}"></div></div>
+        <div style="font-size:10.5px;color:var(--paper-dim);margin-top:3px;">${[detalheDiogo, detalheTiago].filter(Boolean).join(' &nbsp;·&nbsp; ')}</div>
+      </div>`;
+  }).join('');
+}
+
+// Clicar numa categoria leva pra aba Transações já filtrada por ela
+function goToCategoryTransactions(cat){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="transacoes"]').classList.add('active');
+  document.getElementById('tab-transacoes').classList.add('active');
+  document.getElementById('fCategory').value = cat;
+  // parcelas em aberto abrangem vários meses — muda o filtro pra "últimos 90 dias" pra dar mais chance de aparecer
+  document.querySelectorAll('.preset').forEach(p=>p.classList.remove('active'));
+  document.querySelector('.preset[data-preset="90d"]').classList.add('active');
+  datePreset = '90d';
+  document.querySelector('.month-nav').style.display = 'none';
+  loadTransactions();
 }
 
 function renderMonthChart(rows){
@@ -599,7 +645,7 @@ function renderMonthChart(rows){
     data:{ labels: months, datasets },
     options:{
       responsive:true,
-      scales:{ x:{stacked:true, grid:{display:false}, ticks:{color:'#8891A0'}}, y:{stacked:true, grid:{color:'#232936'}, ticks:{color:'#8891A0'}} },
+      scales:{ x:{grid:{display:false}, ticks:{color:'#8891A0'}}, y:{grid:{color:'#232936'}, ticks:{color:'#8891A0'}} },
       plugins:{ legend:{labels:{color:'#EDEFF2'}} }
     }
   });
