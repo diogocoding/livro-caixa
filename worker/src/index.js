@@ -465,13 +465,13 @@ async function handleSummary(req, env) {
      GROUP BY month ORDER BY month ASC`
   ).all();
 
-  // Gastos mais frequentes (recorrência no dia a dia, últimos 3 meses)
+  // Gastos mais frequentes (recorrência no dia a dia, últimos 3 meses), separado por pessoa
   const frequentes = await env.DB.prepare(
-    `SELECT t.description, t.category, COUNT(*) as n, SUM(${GASTO_EXPR}) as total, AVG(${GASTO_EXPR}) as media
+    `SELECT a.person_id, t.description, t.category, COUNT(*) as n, SUM(${GASTO_EXPR}) as total, AVG(${GASTO_EXPR}) as media
      FROM transactions t JOIN accounts a ON a.id = t.account_id
      WHERE t.category NOT IN ${NAO_E_GASTO} AND t.date >= date('now', '-3 months')
-     GROUP BY t.description HAVING n >= 2
-     ORDER BY n DESC, total DESC LIMIT 10`
+     GROUP BY a.person_id, t.description HAVING n >= 2
+     ORDER BY n DESC, total DESC LIMIT 20`
   ).all();
 
   return json({
@@ -491,6 +491,7 @@ async function handleSummary(req, env) {
 async function handleBills(env) {
   const { results } = await env.DB.prepare(
     `SELECT b.*, a.name as account_name FROM bills b JOIN accounts a ON a.id = b.account_id
+     WHERE b.due_date >= date('now', '-2 months')
      ORDER BY b.due_date ASC`
   ).all();
   return json(results);

@@ -23,6 +23,15 @@
     --orange:#F0A93F;
     --shadow: 0 1px 2px rgba(16,24,40,.04), 0 8px 20px rgba(16,24,40,.06);
   }
+  [data-theme="dark"]{
+    --bg:#12151C;
+    --surface:#1A1F2A;
+    --surface-soft:#232936;
+    --border:#2E3644;
+    --ink:#EDEFF2;
+    --ink-dim:#8891A0;
+    --shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
   *{box-sizing:border-box;}
   body{
     margin:0; background:var(--bg); color:var(--ink);
@@ -163,6 +172,7 @@
       </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;">
+      <button class="btn" id="themeBtn">🌙</button>
       <button class="btn primary" id="syncBtn">↻ Sincronizar</button>
       <button class="btn" id="cfgBtn">Config</button>
     </div>
@@ -203,10 +213,17 @@
         <div class="barlist" id="fixedVarBars"></div>
       </div>
     </div>
-    <div class="panel">
-      <h2>Gastos mais frequentes</h2>
-      <div class="panel-sub">Últimos 3 meses — o que se repete mais no dia a dia</div>
-      <div class="barlist" id="frequentBars"></div>
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Gastos frequentes · Diogo</h2>
+        <div class="panel-sub">Últimos 3 meses</div>
+        <div class="barlist" id="frequentBarsYou"></div>
+      </div>
+      <div class="panel">
+        <h2>Gastos frequentes · Tiago</h2>
+        <div class="panel-sub">Últimos 3 meses</div>
+        <div class="barlist" id="frequentBarsPartner"></div>
+      </div>
     </div>
   </div>
 
@@ -219,6 +236,13 @@
     <div class="panel">
       <h2>Faturas</h2>
       <div class="panel-sub">Fatura atual e próximas faturas previstas</div>
+      <div class="filters" style="margin-bottom:10px;">
+        <div class="seg" id="fBillsPerson">
+          <span class="active" data-val="">Todos</span>
+          <span data-val="you">Diogo</span>
+          <span data-val="partner">Tiago</span>
+        </div>
+      </div>
       <div id="billsList"></div>
     </div>
     <div class="panel">
@@ -315,6 +339,15 @@ document.addEventListener('click', ()=>document.querySelectorAll('.info-pop').fo
 
 function avatar(name, color){ return `<span class="avatar" style="background:${color}">${name[0]}</span>`; }
 
+// tema claro/escuro
+const savedTheme = localStorage.getItem('fin_theme') || 'light';
+if (savedTheme === 'dark') { document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent = '☀️'; }
+document.getElementById('themeBtn').onclick = ()=>{
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  if (isDark) { document.documentElement.removeAttribute('data-theme'); document.getElementById('themeBtn').textContent = '🌙'; localStorage.setItem('fin_theme','light'); }
+  else { document.documentElement.setAttribute('data-theme','dark'); document.getElementById('themeBtn').textContent = '☀️'; localStorage.setItem('fin_theme','dark'); }
+};
+
 function ring(pct, color){
   const deg = Math.min(pct, 100) * 3.6;
   return `<div class="ring" style="background:conic-gradient(${color} ${deg}deg, #EEF0F7 0deg)"><div class="ring-inner">${pct.toFixed(0)}%</div></div>`;
@@ -378,7 +411,7 @@ async function loadAll(){
     ]);
     renderCards(summary, accounts);
     renderCardsList(accounts);
-    renderBillsList(bills, accounts);
+    renderBillsList(bills);
     renderMonthChart(summary.byMonth);
     renderCategoryBarsSplit(summary.byCategoryPerson);
     renderFixedVariable(summary.byFixedVariable || []);
@@ -403,30 +436,71 @@ async function loadAll(){
   }
 }
 
-function renderBillsList(bills, accounts){
+let billsData = [];
+let billsPersonFiltro = '';
+
+function renderBillsList(bills){
+  billsData = bills || [];
+  drawBillsList();
+}
+
+document.getElementById('fBillsPerson').querySelectorAll('span').forEach(el=>{
+  el.onclick = ()=>{
+    document.getElementById('fBillsPerson').querySelectorAll('span').forEach(s=>s.classList.remove('active'));
+    el.classList.add('active');
+    billsPersonFiltro = el.dataset.val;
+    drawBillsList();
+  };
+});
+
+function drawBillsList(){
   const el = document.getElementById('billsList');
-  if (!bills || !bills.length){ el.innerHTML = '<div class="empty-small">Nenhuma fatura futura disponível ainda (nem todo banco expõe isso).</div>'; return; }
+  let bills = billsData;
+  if (billsPersonFiltro) bills = bills.filter(b=>b.person_id === billsPersonFiltro);
+  if (!bills.length){ el.innerHTML = '<div class="empty-small">Nenhuma fatura recente disponível ainda (nem todo banco expõe isso).</div>'; return; }
+
   const hoje = new Date().toISOString().slice(0,10);
   const ordenadas = [...bills].sort((a,b)=> (a.due_date||'').localeCompare(b.due_date||''));
-  el.innerHTML = ordenadas.map(b=>{
+  // separa a próxima fatura em aberto (destaque) do resto
+  const proxima = ordenadas.find(b=>b.due_date && b.due_date.slice(0,10) >= hoje);
+  const resto = ordenadas.filter(b=>b !== proxima);
+
+  let html = '';
+  if (proxima) {
+    const pessoa = proxima.person_id==='you' ? 'Diogo' : 'Tiago';
+    const cor = proxima.person_id==='you' ? '#22B07D' : '#F0A93F';
+    html += `
+      <div style="background:var(--surface-soft);border-radius:14px;padding:16px 18px;margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--ink-dim);margin-bottom:4px;">${avatar(pessoa,cor)}Próxima fatura · ${proxima.account_name}</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:22px;">${fmt(proxima.total_amount)}</div>
+        <div style="font-size:11.5px;color:var(--ink-dim);margin-top:4px;">Vencimento ${new Date(proxima.due_date).toLocaleDateString('pt-BR')}</div>
+      </div>`;
+  }
+  html += resto.slice(0,6).map(b=>{
     const pessoa = b.person_id==='you' ? 'Diogo' : 'Tiago';
     const cor = b.person_id==='you' ? '#22B07D' : '#F0A93F';
     const venceu = b.due_date && b.due_date.slice(0,10) < hoje;
-    const label = venceu ? 'vencida' : 'a vencer';
     const dataFmt = b.due_date ? new Date(b.due_date).toLocaleDateString('pt-BR') : '—';
     return `
       <div class="cc-card">
         <div class="cc-info">
           <div class="cc-name">${avatar(pessoa, cor)}${b.account_name}</div>
-          <div class="cc-meta">Vencimento ${dataFmt} · <span style="color:${venceu?'var(--coral)':'var(--ink-dim)'}">${label}</span></div>
+          <div class="cc-meta">Vencimento ${dataFmt}${venceu?' · paga':''}</div>
         </div>
         <div class="cc-value">${fmt(b.total_amount)}</div>
       </div>`;
   }).join('');
+  el.innerHTML = html;
 }
 
 function renderFrequent(rows){
-  const el = document.getElementById('frequentBars');
+  const you = (rows||[]).filter(r=>r.person_id==='you').slice(0,8);
+  const partner = (rows||[]).filter(r=>r.person_id==='partner').slice(0,8);
+  renderFrequentList('frequentBarsYou', you);
+  renderFrequentList('frequentBarsPartner', partner);
+}
+function renderFrequentList(containerId, rows){
+  const el = document.getElementById(containerId);
   if (!rows.length){ el.innerHTML = '<div class="empty-small">Sem dados suficientes ainda.</div>'; return; }
   const max = Math.max(...rows.map(r=>r.n));
   el.innerHTML = rows.map(r=>{
@@ -701,10 +775,12 @@ function renderFixedVariable(rows){
 function renderUpcomingBars(rows){
   const el = document.getElementById('upcomingBars');
   const byCat = {};
+  const totalPorPessoa = { you: 0, partner: 0 };
   (rows||[]).forEach(r=>{
     if (!byCat[r.category]) byCat[r.category] = { you: null, partner: null, total: 0 };
     byCat[r.category][r.person_id] = r;
     byCat[r.category].total += r.total;
+    totalPorPessoa[r.person_id] = (totalPorPessoa[r.person_id]||0) + r.total;
   });
   const cats = Object.entries(byCat).filter(([,v])=>v.total>0).sort((a,b)=>b[1].total-a[1].total);
   if (!cats.length){ el.innerHTML = '<div class="empty-small">Nenhuma parcela em aberto no momento.</div>'; return; }
@@ -717,9 +793,15 @@ function renderUpcomingBars(rows){
   linhas.sort((a,b)=>b.total-a.total);
 
   el.innerHTML = `
+    <div style="display:flex;gap:14px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border);">
+      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Diogo','#22B07D')}Total Diogo</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-top:4px;">${fmt(totalPorPessoa.you||0)}</div></div>
+      <div><div style="font-size:11px;color:var(--ink-dim);">${avatar('Tiago','#F0A93F')}Total Tiago</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;margin-top:4px;">${fmt(totalPorPessoa.partner||0)}</div></div>
+    </div>
     <table style="font-size:12.5px;width:100%;border-collapse:collapse;">
       <thead><tr style="text-align:left;color:var(--ink-dim);font-size:10.5px;text-transform:uppercase;">
-        <th style="padding:8px 4px;">Categoria</th><th>Pessoa</th><th style="text-align:right;">Falta pagar</th><th style="text-align:right;">Parcelas</th>
+        <th style="padding:8px 4px;">Categoria</th><th>Pessoa</th><th style="text-align:right;">Falta pagar</th><th style="text-align:right;">Parcelas restantes</th>
       </tr></thead>
       <tbody>
         ${linhas.map(l=>`
@@ -727,7 +809,7 @@ function renderUpcomingBars(rows){
             <td style="padding:9px 4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${colorFor(l.cat)};margin-right:6px;"></span>${l.cat}</td>
             <td><span style="color:${l.cor};font-weight:600;">${l.pessoa}</span></td>
             <td style="text-align:right;font-family:'IBM Plex Mono',monospace;">${fmt(l.total)}</td>
-            <td style="text-align:right;color:var(--ink-dim);">${l.parcelas_restantes}x (${l.compras_ativas})</td>
+            <td style="text-align:right;color:var(--ink-dim);">${l.parcelas_restantes} parcelas em ${l.compras_ativas} compra${l.compras_ativas>1?'s':''}</td>
           </tr>
         `).join('')}
       </tbody>
