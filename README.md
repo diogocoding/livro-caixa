@@ -65,24 +65,39 @@ e trazer o resumo das transações puxadas.
 O cron já está configurado (`wrangler.toml`) pra rodar sozinho **todo dia às 03h (horário de Brasília)**,
 sem vocês precisarem fazer nada.
 
-## 5. Deploy do frontend no Cloudflare Pages (2 min)
+## 5. Deploy do frontend no Cloudflare Pages, com as credenciais automáticas (5 min, só uma vez)
 
-```bash
-cd ../frontend
-wrangler pages deploy . --project-name=livro-caixa
-```
+Diferente de antes, a URL do Worker e a senha da API **não ficam mais no código**. Elas são
+injetadas automaticamente pelo `build.sh` (na raiz do repo) toda vez que o Cloudflare Pages
+faz o deploy, a partir de variáveis de ambiente configuradas no painel — nunca são commitadas
+no Git nem digitadas por vocês no site.
 
-Ou, se preferir pelo GitHub: suba a pasta `frontend/` num repo e conecte esse repo em
-**Cloudflare Pages > Create Project > Connect to Git** (build command vazio, output = raiz).
+1. Suba o repositório inteiro (incluindo `build.sh` e a pasta `frontend/`) pro GitHub.
+2. No Cloudflare, vá em **Workers & Pages > Create > Pages > Connect to Git** e escolha o repo.
+3. Em **Build settings**:
+   - **Build command**: `bash build.sh`
+   - **Build output directory**: `dist`
+4. Em **Settings > Environment variables**, adicione (em "Production", e repita em "Preview" se for usar):
+   - `API_URL` = a URL do Worker do passo 4 (ex: `https://financas-worker.SEU-USUARIO.workers.dev`)
+   - `API_SECRET` = o mesmo valor que você definiu com `wrangler secret put API_SECRET` no passo 3
+     — marque como **"Encrypt"** (o Cloudflare esconde o valor no painel depois de salvo, só ele
+     consegue usar na hora do build)
+5. Clique em **Save and Deploy**. Pronto — o dashboard já sobe funcionando, sem tela de "Config" e
+   sem nada pra vocês digitarem depois disso. Todo novo deploy (a cada push no repo) já injeta tudo
+   de novo sozinho.
 
-## 6. Configurar o dashboard
+## 6. Proteger com o Cloudflare Zero Trust (só no frontend)
 
-Abra a URL que o Pages te deu, clique em **"config"** no canto superior direito, e cole:
-- **URL do Worker**: a URL do passo 4
-- **Senha da API**: o `API_SECRET` que você definiu no passo 3
+Coloque o **Access Application do Zero Trust só na URL do Pages** (`livro-caixa.pages.dev` ou o domínio
+que você configurar), com uma política permitindo apenas o e-mail de vocês dois (login por
+código de e-mail ou conta Google — sem senha fixa pra ninguém esquecer).
 
-Pronto — o dashboard já carrega os dados. Clique em **"↻ sincronizar agora"** pra forçar
-uma atualização manual a qualquer momento (fora do sync automático diário).
+**Não coloque Access na frente do Worker** (`financas-worker...workers.dev`). O Worker já tem sua
+própria proteção (o `API_SECRET`, injetado automaticamente como vimos acima), e colocar Access nele
+também quebra as chamadas do navegador (o Access intercepta o `fetch()` com uma página de login em
+vez de responder com CORS — foi exatamente o erro que você viu antes). Como só quem passa pelo login
+do Access consegue sequer abrir a página e enxergar esse segredo, a combinação das duas camadas já
+cobre o "só eu e meu namorado" sem burocracia extra no dia a dia.
 
 ---
 
