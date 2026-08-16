@@ -3,15 +3,21 @@
  * e expõe uma API pro frontend consumir.
  *
  * Rotas:
- *   GET  /api/sync              -> força sincronização de todas as contas (também roda via cron)
- *   GET  /api/transactions      -> lista transações (filtros: from, to, category, person, accountId)
- *   GET  /api/summary           -> resumo agregado por categoria/mês/pessoa
- *   GET  /api/accounts          -> lista contas conectadas (saldo, limite)
- *   PATCH /api/transactions/:id -> atualiza categoria manualmente
+ *   GET   /api/sync               -> força sincronização de todas as contas (também roda via cron)
+ *   GET   /api/transactions       -> lista transações (filtros: from, to, category, person, accountId)
+ *   GET   /api/summary            -> resumo agregado por categoria/mês/pessoa
+ *   GET   /api/accounts           -> lista contas conectadas (saldo, limite)
+ *   PATCH /api/transactions/:id   -> atualiza categoria manualmente
+ *   GET   /api/categories         -> lista categorias com meta de gasto mensal (monthly_budget)
+ *   PATCH /api/categories/:name   -> define/remove a meta de gasto de uma categoria
+ *   POST  /api/push/subscribe     -> registra uma inscrição de notificação push do navegador
+ *   POST  /api/push/unsubscribe   -> remove uma inscrição
  *
  * Todas as rotas exigem header:  Authorization: Bearer <API_SECRET>
  * (API_SECRET é definido como secret do Worker, é só uma senha compartilhada entre vocês dois)
  */
+
+import { buildPushHTTPRequest } from '@pushforge/builder';
 
 const PLUGGY_BASE = 'https://api.pluggy.ai';
 
@@ -561,6 +567,127 @@ async function handleDebugLoans(env) {
   return json(debug);
 }
 
+// -------------------- Metas de gasto por categoria --------------------
+
+async function handleGetCategories(env) {
+  const { results } = await env.DB.prepare(
+    `SELECT name, type, monthly_budget, color FROM categories ORDER BY name`
+  ).all();
+  return json(results);
+}
+
+async function handleUpdateCategoryBudget(req, env, name) {
+  const body = await req.json();
+  // aceita number ou null (null = remover a meta)
+  const budget = body.monthly_budget === null || body.monthly_budget === undefined
+    ? null : Number(body.monthly_budget);
+  if (budget !== null && (!Number.isFinite(budget) || budget < 0)) {
+    return json({ error: 'monthly_budget inválido' }, 400);
+  }
+  await env.DB.prepare(
+    `INSERT INTO categories (name, type, monthly_budget) VALUES (?1, 'variavel', ?2)
+     ON CONFLICT(name) DO UPDATE SET monthly_budget = ?2`
+  ).bind(name, budget).run();
+  return json({ ok: true });
+}
+
+// -------------------- Notificações push --------------------
+
+async function handlePushSubscribe(req, env) {
+  const body = await req.json();
+  const sub = body.subscription;
+  if (!sub?.endpoint || !sub?.keys?.p256dh || !sub?.keys?.auth) {
+    return json({ error: 'subscription inválida' }, 400);
+  }
+  await env.DB.prepare(
+    `INSERT INTO push_subscriptions (endpoint, p256dh, auth, person_id) VALUES (?1, ?2, ?3, ?4)
+     ON CONFLICT(endpoint) DO UPDATE SET p256dh = ?2, auth = ?3, person_id = ?4`
+  ).bind(sub.endpoint, sub.keys.p256dh, sub.keys.auth, body.person_id || null).run();
+  return json({ ok: true });
+}
+
+async function handlePushUnsubscribe(req, env) {
+  const body = await req.json();
+  if (!body.endpoint) return json({ error: 'endpoint é obrigatório' }, 400);
+  await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?1`).bind(body.endpoint).run();
+  return json({ ok: true });
+}
+
+// Envia uma notificação push pra todas as inscrições salvas (Diogo + Tiago, em todos os
+// dispositivos que ativaram). Remove sozinho as inscrições que o navegador já invalidou
+// (410/404 -> usuário desinstalou o PWA, limpou os dados do site, etc).
+async function sendPushToAll(env, payload, options) {
+  if (!env.VAPID_PRIVATE_KEY || !env.VAPID_SUBJECT) return { enviados: 0, erro: 'VAPID não configurado' };
+  const privateJWK = JSON.parse(env.VAPID_PRIVATE_KEY);
+  const { results: subs } = await env.DB.prepare(`SELECT * FROM push_subscriptions`).all();
+
+  let enviados = 0;
+  for (const sub of subs) {
+    const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } };
+    try {
+      const { endpoint, headers, body } = await buildPushHTTPRequest({
+        privateJWK,
+        subscription,
+        message: { payload, adminContact: env.VAPID_SUBJECT, options },
+      });
+      const res = await fetch(endpoint, { method: 'POST', headers, body });
+      if (res.status === 404 || res.status === 410) {
+        await env.DB.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?1`).bind(sub.endpoint).run();
+      } else if (res.ok) {
+        enviados++;
+      }
+    } catch (e) {
+      // uma inscrição com problema não deve travar as outras
+    }
+  }
+  return { enviados };
+}
+
+// Roda a cada execução do cron: avisa fatura perto de vencer (3 dias) e meta de categoria
+// estourada — cada uma só uma vez (marca `alerted_due_soon` / grava em `budget_alerts`).
+async function checkAlerts(env) {
+  const { results: billsSoon } = await env.DB.prepare(
+    `SELECT b.*, a.name as account_name FROM bills b JOIN accounts a ON a.id = b.account_id
+     WHERE b.alerted_due_soon = 0 AND b.due_date IS NOT NULL
+       AND date(b.due_date) BETWEEN date('now') AND date('now', '+3 days')`
+  ).all();
+  for (const b of billsSoon) {
+    const pessoa = b.person_id === 'you' ? 'Diogo' : 'Tiago';
+    await sendPushToAll(env, {
+      title: `Fatura vencendo — ${b.account_name}`,
+      body: `${pessoa}: vencimento ${new Date(b.due_date).toLocaleDateString('pt-BR')}, valor ${(b.total_amount || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+    }, { urgency: 'high' });
+    await env.DB.prepare(`UPDATE bills SET alerted_due_soon = 1 WHERE id = ?1`).bind(b.id).run();
+  }
+
+  const mes = new Date().toISOString().slice(0, 7);
+  const GASTO_EXPR = `CASE WHEN a.type = 'CREDIT' THEN (CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END)
+    ELSE (CASE WHEN t.amount < 0 THEN -t.amount ELSE 0 END) END`;
+  const { results: gastoPorCategoria } = await env.DB.prepare(
+    `SELECT t.category, SUM(${GASTO_EXPR}) as total FROM transactions t JOIN accounts a ON a.id = t.account_id
+     WHERE t.date >= date('now', 'start of month') GROUP BY t.category`
+  ).all();
+  const { results: metas } = await env.DB.prepare(
+    `SELECT name, monthly_budget FROM categories WHERE monthly_budget IS NOT NULL AND monthly_budget > 0`
+  ).all();
+
+  for (const meta of metas) {
+    const gasto = gastoPorCategoria.find(g => g.category === meta.name)?.total || 0;
+    if (gasto < meta.monthly_budget) continue;
+    const jaAlertado = await env.DB.prepare(
+      `SELECT 1 FROM budget_alerts WHERE category = ?1 AND month = ?2`
+    ).bind(meta.name, mes).first();
+    if (jaAlertado) continue;
+    await sendPushToAll(env, {
+      title: `Meta estourada — ${meta.name}`,
+      body: `Gasto do mês já passou da meta de ${meta.monthly_budget.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`,
+    }, { urgency: 'normal' });
+    await env.DB.prepare(
+      `INSERT OR IGNORE INTO budget_alerts (category, month) VALUES (?1, ?2)`
+    ).bind(meta.name, mes).run();
+  }
+}
+
 async function handleUpdateCategory(req, env, id) {
   const body = await req.json();
   if (!body.category) return json({ error: 'category é obrigatório' }, 400);
@@ -612,7 +739,7 @@ export default {
       return new Response(null, {
         headers: {
           'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET,PATCH,OPTIONS',
+          'Access-Control-Allow-Methods': 'GET,PATCH,POST,OPTIONS',
           'Access-Control-Allow-Headers': 'Authorization,Content-Type',
         },
       });
@@ -641,14 +768,23 @@ export default {
         const id = path.split('/').pop();
         return await handleUpdateCategory(req, env, id);
       }
+      if (path === '/api/categories' && req.method === 'GET') return await handleGetCategories(env);
+      if (path.startsWith('/api/categories/') && req.method === 'PATCH') {
+        const name = decodeURIComponent(path.split('/').pop());
+        return await handleUpdateCategoryBudget(req, env, name);
+      }
+      if (path === '/api/push/subscribe' && req.method === 'POST') return await handlePushSubscribe(req, env);
+      if (path === '/api/push/unsubscribe' && req.method === 'POST') return await handlePushUnsubscribe(req, env);
+      if (path === '/api/push/vapid-public-key') return json({ key: env.VAPID_PUBLIC_KEY || null });
       return json({ error: 'not found' }, 404);
     } catch (err) {
       return json({ error: String(err.message || err) }, 500);
     }
   },
 
-  // Roda sozinho todo dia às 06:00 UTC (03:00 horário de Brasília) — configurado no wrangler.toml
+  // Roda sozinho a cada 10 minutos (configurado no wrangler.toml): sincroniza e, na
+  // sequência, confere se tem fatura perto de vencer ou meta de categoria estourada.
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(syncAll(env));
+    ctx.waitUntil(syncAll(env).then(() => checkAlerts(env)));
   },
 };
