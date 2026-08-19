@@ -8,13 +8,17 @@ quando ajustar uma categoria ou definir uma meta.
 **Custo: R$ 0.** Pluggy é gratuito para uso pessoal, e Workers + D1 + Pages do Cloudflare
 têm plano free mais que suficiente para o volume de dados de duas pessoas.
 
+<!-- 🎬 GIF/vídeo de demonstração da interface (com dados fictícios) aqui -->
+<img width="1152" height="648" alt="1° (3) (1) (1)" src="https://github.com/user-attachments/assets/3c111b62-7d18-41c4-9f58-a3f6257fbd57" />
+
+
 ---
 
 ## O que o sistema faz
 
 - **Sincroniza sozinho**, a cada 10 minutos, todas as contas/cartões conectados na Pluggy.
 - **Categoriza automaticamente** por palavra-chave na descrição (ajustável), e lembra de
-  qualquer correção manual feita no dashboard.
+  qualquer correção manual feita no dashboard — não sobrescreve de novo no próximo sync.
 - **Dashboard** com resumo por categoria, por mês, por pessoa, evolução de saldo e gastos
   frequentes.
 - **Faturas de cartão** — lista as últimas faturas fechadas/abertas, com filtro por período.
@@ -217,7 +221,8 @@ A Pluggy categoriza automaticamente só no plano pago (feature "Enrichment"). No
 gratuito, o Worker usa um mapeamento simples por palavra-chave na descrição da transação
 (`mapMerchantToCategory` em `worker/src/index.js`) — ajustem essas regras conforme os
 nomes que aparecerem nos seus extratos. Qualquer categoria que vocês corrigirem manualmente
-no dashboard fica "travada" (não é sobrescrita no próximo sync).
+no dashboard fica "travada" (não é sobrescrita no próximo sync) — não é aprendizado
+automático, é só uma trava por transação específica.
 
 ## Notificações push
 
@@ -228,6 +233,14 @@ O worker manda push quando, no cron de 10 em 10 minutos, detecta:
   pela tabela `budget_alerts`).
 
 Se o sino aparecer avisando "servidor sem VAPID configurado", revise o passo 4 acima.
+
+## Sobre o uso deste repositório
+
+Este projeto foi construído com apoio do Claude Code para acelerar a implementação, com
+arquitetura, modelo de dados e decisões de segurança definidos por nós. É um projeto de
+uso pessoal — se for rodar o seu próprio, configure suas próprias credenciais da Pluggy e
+do Cloudflare (nenhuma credencial real fica versionada aqui, veja `.gitignore` e a seção
+de secrets acima).
 
 ## Próximos passos possíveis (não incluídos ainda)
 
